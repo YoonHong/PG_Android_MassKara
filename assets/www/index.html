@@ -22,11 +22,13 @@
 			Global Var
 *******************************************************************************************/
 		var $pMain, $pMain_HD, $pMain_Content;
-		var $pMain_Cal, $pMC_LB, $pMC_RB;
+		var $pMain_Cal, $pMC_Sel, $pMC_LB, $pMC_RB, $pMC_SelPL, $pMC_Popup;
 		var $NB_Sch, $NB_Venue, $NB_Fav, $NB_Info;
 		var $c_Sch, $c_Venue, $c_Fav, $c_Info;
+		var $c_Sch_List;
 
 		var gObj_cNB; // Current Navi Content Info
+		var gObj_Cal_UI; // Calendar UI
 
 		var gArr_place, gArr_sList;
 		var gArr_weekDay, gArr_sWeekDay, gArr_month, gArr_sMonth;
@@ -116,7 +118,158 @@
 			constructor: MK_Place
 		};
 
+/****************************************************************
+			Calendar UI Object
+****************************************************************/
+		function MK_UI_Calendar ( ) {
+			var sListLength = gArr_sList.length;
 
+			var fDay = gArr_sList[0].sDate;
+			var lDay = gArr_sList[sListLength - 1].sDate;
+			var today = new Date();
+			var selDay; // Selected Day
+			var idx; // Selected Day Index in gArr_sList
+
+//today.setFullYear(2012,9,20); // for test
+
+			today.setHours(0);
+			today.setMinutes(0);
+			today.setSeconds(0);
+			today.setMilliseconds(0);
+
+			if( cmp_date( today , fDay ) == -1 ) {
+			// Before MassKara : Show fDay
+				selDay = fDay;
+				idx = 0;
+
+			} else if (cmp_date( today , lDay ) == 1) {
+			// After MassKara : Show lDay
+				selDay = lDay;
+				idx = sListLength - 1;
+			
+			} else {
+			// During MassKara
+				for( var i = 0; i < sListLength; i++ ) {
+					var itm = gArr_sList[i].sDate;
+
+					if( cmp_date( today , itm) <= 0 ) {
+						selDay = itm;
+						idx = i;
+
+						break;
+					}
+				}
+			}
+
+
+			this.idx = idx; // Selected Day Index in gArr_sList
+
+
+			this.update_UI_Calender();
+
+		} // function MK_UI_Calendar
+				
+		MK_UI_Calendar.prototype = {
+			constructor: MK_UI_Calendar
+
+			, showList : function () {
+				
+				var sList = gArr_sList[this.idx].sList;
+				var cDay = gArr_sList[this.idx].sDate;
+				var tDay = gArr_weekDay[ cDay.getDay() ] + " " + cDay.getDate() + " " + gArr_month[cDay.getMonth()] + " " + cDay.getFullYear();
+
+				var txt = '<li data-role="list-divider"><h3 class="ui-li-heading">' + tDay + '</h3></li>';
+
+				for ( var i=0, iCnt= sList.length; i < iCnt; i++ ) {
+					var cs = sList[i];
+					var title = cs.title;
+					var pidx = cs.place;
+					var place = ( isUD( gArr_place[pidx] ) ? "" : " @ " + gArr_place[pidx].name );
+
+					txt += '<li><a><img src="img/star.png" class="ui-li-icon" />';
+					txt += '<h3 class="ui-li-heading">' + title + '</h3>';
+					txt += '<p class="ui-li-desc">' + getSTime( cs ) + place + '</p></a></li>';			
+				}
+
+				$c_Sch_List.html(txt).listview('refresh');
+			}
+
+			, setCalUI : function () {
+
+				$pMC_Sel.text(this.getBtnTxt( this.idx , 0 )).button('refresh');
+
+				// Set Left, Right Buttons
+				if ( this.idx == 0 ) {
+					// Hide Left Button
+					$pMC_LB.parent().hide();
+					$pMC_RB.text( this.getBtnTxt( 1 ) ).button('refresh');
+				
+				} else if ( this.idx == gArr_sList.length - 1 ) {
+					// Hide Right Button
+					$pMC_RB.parent().hide();
+					$pMC_LB.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
+
+				} else {
+					if($pMC_RB.parent().css("display") == "none") $pMC_RB.parent().show();
+					if($pMC_LB.parent().css("display") == "none") $pMC_LB.parent().show();
+
+					$pMC_LB.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
+					$pMC_RB.text( this.getBtnTxt( this.idx + 1 ) ).button('refresh');
+				}
+
+
+			}
+
+			, update_selPL : function (){
+				var txt = '<li data-role="list-divider" data-idx="-1">Select Day</li>';
+				var theme = ["a", "c"];
+
+				var theme_count = 0;
+
+				for ( var i = 0, iCount = gArr_sList.length; i < iCount; i++ ) {
+					
+					if( i == this.idx ) continue;
+
+					var iDate = gArr_sList[i].sDate;
+					var txtDay =  "" + gArr_sWeekDay[ iDate.getDay() ] + " " + iDate.getDate() + " " + gArr_sMonth[iDate.getMonth()];
+
+					txt += '<li data-icon="false" data-theme="' + theme[ theme_count++ % 2 ] + '" data-idx="' + i + '">';
+					txt += '<p class="ui-li-desc"><b>' + txtDay  + '</b></p>';
+					txt += '<span class="ui-li-count">' + gArr_sList[i].sList.length + '</span></li>';
+				}
+
+				$pMC_SelPL.html(txt).listview('refresh');
+			}
+
+			, update_UI_Calender : function() {
+				this.setCalUI();
+				this.showList();
+			}
+
+			, getBtnTxt : function ( i , type ) {
+				var iDay = gArr_sList[i].sDate;
+
+				if( type == 0 )
+					return ( "" + gArr_sWeekDay[iDay.getDay()] + " " + iDay.getDate()  );
+				else
+					return ( "" + iDay.getDate() + " " + gArr_sMonth[ iDay.getMonth() ] );
+			}
+
+			, click_RBtn : function( ) {
+				this.idx++;
+				this.update_UI_Calender();
+			}
+
+			, click_LBtn : function( ) {
+				this.idx--;
+				this.update_UI_Calender();
+			}
+
+			, select_pDate : function( idx ) {
+				this.idx = idx;
+				this.update_UI_Calender();
+			}
+		};
 
 
 /******************************************************************************************
@@ -134,12 +287,32 @@
 			}
 		}
 
+
+		// Return  -1 : di is old date ,  0 : d1 == d2 ,  1 : d2 is old date
+		function cmp_date( d1 , d2 ) {
+
+			var d1Time = d1.getTime();
+			var d2Time = d2.getTime();
+
+			if( d1Time > d2Time ) return 1;
+
+			if( d1Time < d2Time ) return -1;
+			else return 0;
+		}
+
+		// Get Schedule Time
+		function getSTime ( sData ) {
+			var sTime = ( typeof(sData.time) == "object") ? ( sData.time[0] + " - " + sData.time[1] ) : sData.time;
+
+			return sTime;
+		}
+
 /******************************************************************************************
 			Init Functions
 *******************************************************************************************/
 		function init_vals(){
 			gArr_weekDay = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
-			gArr_sWeekDay = [ "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" ];
+			gArr_sWeekDay = [ "SU", "MO", "TU", "WE", "TH", "FR", "SA" ];
 			gArr_month = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "Decmber"];
 			gArr_sMonth = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 		}
@@ -148,8 +321,11 @@
 			$pMain_HD = $pMain.children("#pMain_HD");
 			$pMain_Content = $pMain.children("#pMain_Content");
 			$pMain_Cal = $pMain_HD.children("#pMain_Cal");
+			$pMC_Sel = $pMain_Cal.find("#pMC_Sel"); 
 			$pMC_LB = $pMain_Cal.find("#pMC_LB");
 			$pMC_RB = $pMain_Cal.find("#pMC_RB");
+			$pMC_Popup = $("#popupSelDate");
+			$pMC_SelPL = $pMC_Popup.find("ul");
 
 			$NB_Sch = $pMain_HD.find("ul #NB_Sch");
 			$NB_Venue = $pMain_HD.find("ul #NB_Venue");
@@ -159,7 +335,9 @@
 			$c_Sch = $pMain_Content.children("#c_Sch");
 			$c_Venue = $pMain_Content.children("#c_Venue");
 			$c_Fav = $pMain_Content.children("#c_Fav");
-			$c_Info = $pMain_Content.children("#c_Info");		
+			$c_Info = $pMain_Content.children("#c_Info");	
+			
+			$c_Sch_List = $c_Sch.children("ul"); // Schedule List
 		}
 
 		function init_Places ( ) {
@@ -209,7 +387,7 @@
 			sList = [
 						new MK_Schedule(allDay, "MassKara Art Weekend")
 						, new MK_Schedule(["5:00 pm", "6:00 pm"], "Opening: LCC Giant MassKara Puppets Replica Exhibits", 4)
-						, new MK_Schedule(["6:00 pm", "8:00 pm"], "Opening: 9D – A Visual Arts Exhibit by the MassKara 9", 5)
+						, new MK_Schedule(["6:00 pm", "8:00 pm"], "Opening: 9D - A Visual Arts Exhibit by the MassKara 9", 5)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -261,7 +439,7 @@
 			// 2012 Oct 20
 			sDate = new Date(mkYear, mkMonth, 20);
 			sList = [
-						new MK_Schedule(["3:00 pm", "7:00 pm"], "Streetdance – Schools Category From Libertad Araneta to Bacolod Public Plaza", 0)
+						new MK_Schedule(["3:00 pm", "7:00 pm"], "Streetdance - Schools Category From Libertad Araneta to Bacolod Public Plaza", 0)
 						, new MK_Schedule(["4:00 pm", "6:00 pm"], "Kapuso Mall Show", 2)
 						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions Schools", 0)
 						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 2: Lights Up, Music On", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
@@ -276,10 +454,10 @@
 			// 2012 Oct 21
 			sDate = new Date(mkYear, mkMonth, 21);
 			sList = [
-						new MK_Schedule(["3:00 pm", "10:00 pm"], "Streetdance – Barangay Category From Libertad Araneta to Bacolod Public Plaza", 0)
+						new MK_Schedule(["3:00 pm", "10:00 pm"], "Streetdance - Barangay Category From Libertad Araneta to Bacolod Public Plaza", 0)
 						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions Barangays", 0)
 						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 3", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-						, new MK_Schedule(["7:00 pm", "9:00 pm"], "Winners’ Showdown Electric MassKara float competition")
+						, new MK_Schedule(["7:00 pm", "9:00 pm"], "Winners' Showdown Electric MassKara float competition")
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -308,9 +486,9 @@
 
 		 });
 
-		$(document).on('pageinit', '#pMain', function() {
-			init_Selectors();
 
+		$(document).on('pageinit', '#pMain', function() {
+			init_Selectors();		
 
 			gObj_cNB = new MK_Navi ( $NB_Sch , $c_Sch );
 
@@ -335,6 +513,37 @@
 			$NB_Info.on("click", function(){
 				gObj_cNB.change( $NB_Info , $c_Info );
 			});
+
+			$pMC_RB.on("click", function(){
+				gObj_Cal_UI.click_RBtn();
+			});
+
+			$pMC_LB.on("click", function(){
+				gObj_Cal_UI.click_LBtn();
+			});
+
+			$pMC_Popup.bind({
+				popupbeforeposition: function(event, ui) {
+					gObj_Cal_UI.update_selPL();
+				}
+			});
+
+			$pMC_Sel.on("click", function(){
+				$pMC_Popup.popup( "open" );
+			});
+
+
+			$pMC_SelPL.on("click", "li", function(){
+				var idx = $(this).data('idx');
+
+				if( idx > -1 ) {
+					gObj_Cal_UI.select_pDate( idx );
+					$pMC_Popup.popup( "close" );
+				}
+			});
+
+
+			gObj_Cal_UI = new MK_UI_Calendar( );
 
 		});
 
@@ -362,17 +571,25 @@
 		</div>
 
 		<div style="clear:both" id="pMain_Cal"> 
-			<div class="ui-grid-b">
+			<div class="ui-grid-b" style="padding:5px 0">
 				<div class="ui-block-a">
-					<button data-mini="true" data-inline="true" data-icon="arrow-l"  data-theme="e" id="pMC_LB">6 Oct</button>
+					<span>
+					<button data-mini="false" data-inline="true" data-icon="arrow-l"  data-theme="e" id="pMC_LB"></button>
+					</span>
 				</div>
 				<div class="ui-block-b">
-					<select name="select-choice-0" id="select-choice-0" data-mini="true" data-theme="c"  id="pMC_Sel">
-						<option value="standard">Sat 12 Oct</option>
-					</select>
+
+					<button data-rel="popup" data-role="button" data-mini="false" data-theme="c"  id="pMC_Sel"></button>
+					<div data-role="popup" id="popupSelDate">
+						<ul data-role="listview" data-inset="true" data-theme="e">
+						</ul>
+					</div>
+
 				</div>
 				<div class="ui-block-c" style="text-align:right">
-					<button data-mini="true" data-inline="true" data-icon="arrow-r" data-iconpos="right" data-theme="e" id="pMC_RB">8 Oct</button>
+					<span>
+					<button data-mini="false" data-inline="true" data-icon="arrow-r" data-iconpos="right" data-theme="e" id="pMC_RB"></button>
+					</span>
 				</div>
 			</div>
 		</div>
@@ -383,11 +600,12 @@
 	<div data-role="content" id="pMain_Content">
 
 		<div id="c_Sch" class="pm_content"> 
-			Schedule
+			<ul data-role="listview" data-inset="false" data-theme="c">
+			</ul>
 		</div>
 
 		<div id="c_Venue" class="pm_content"> 
-			Venues
+			Place
 		</div>
 
 		<div id="c_Fav" class="pm_content"> 
@@ -395,7 +613,13 @@
 		</div>
 
 		<div id="c_Info" class="pm_content"> 
-			Info
+			<ul data-role="listview" data-mini="true" data-inset="true" data-theme="c">
+				<li><a><img src="css/image/star.png" class="ui-li-icon" /><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
+				<li><a><img src="css/image/star.png" class="ui-li-icon" /><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
+				<li><a><img src="css/image/star.png" class="ui-li-icon" /><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
+			</ul>
+
+
 		</div>
 
 	</div> <!-- /content #pMain_Content -->
