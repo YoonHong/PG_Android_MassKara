@@ -1,17 +1,213 @@
 <!DOCTYPE html> 
 <html> 
 <head> 
-	<title>My Page</title> 
+	
+	<title>MassKara 2012</title> 
+
 	<meta name="viewport" content="width=device-width, initial-scale=1"> 
 	
 	<link rel="stylesheet" href="css/jquery.mobile-1.2.0-rc.1.min.css" />
+
+	<style type="text/css">
+		#pMain_Content .pm_content {
+			display:none;
+		}
+
+	</style>
 	
 	<script src="js/jquery-1.8.1.min.js"></script>
 
+	<script>
+		/******************************************************************************************
+			Global Var
+		*******************************************************************************************/
+		var $pMain, $pMain_HD, $pMain_Content;
+		var $pMain_Cal, $pMC_LB, $pMC_RB;
+		var $NB_Sch, $NB_Venue, $NB_Fav, $NB_Info;
+		var $c_Sch, $c_Venue, $c_Fav, $c_Info;
+
+		var $gObj_cNB; // Current Navi Content Info
+
+/****************************************************************
+			Navi Bar Object
+****************************************************************/
+		function MK_Navi( $NB , $content ){
+			this.$NB = $NB;
+			this.$content = $content;
+		}
+
+
+		MK_Navi.prototype = {
+			constructor: MK_Navi,
+			
+			show : function () {  // Show Content
+				this.$content.show();
+			},
+
+			change : function ( $new_NB , $new_content ) {  // Change Content
+
+				if ( $new_NB ==  this.$NB ) {
+					return;
+				}
+
+				// Navi Bar State
+				this.$NB.removeClass("ui-state-persist");
+				$new_NB.addClass("ui-state-persist");
+
+				// Check Calender
+				if ( $new_NB == $NB_Sch ) {
+					$pMain_Cal.show().trigger( 'updatelayout' );
+				} else if ( this.$NB == $NB_Sch ) {
+					$pMain_Cal.hide().trigger( 'updatelayout' );
+				}
+
+				this.$NB = $new_NB;
+
+				// Change Content 
+				this.$content.hide();
+				$new_content.show();
+				this.$content = $new_content;
+			}	
+
+
+		};
+
+
+
+
+		/******************************************************************************************
+			Util Functions
+		*******************************************************************************************/
+		// Check undefined
+		function isUD ( v ) {
+			return ( typeof ( v ) == "undefined" ? true : false );
+		}
+
+		// Conlose Log
+		function log( v ) {
+			if ( typeof ( console ) != "undefined" ) {
+				console.log( v );	
+			}
+		}
+		
+
+		$(document).on('mobileinit', function() {
+			$.mobile.defaultPageTransition = "none";
+		});
+
+		$(document).ready(function() {
+					$pMain = $("#pMain");
+		 });
+
+		$(document).on('pageinit', '#pMain', function() {
+
+			$pMain_HD = $pMain.children("#pMain_HD");
+			$pMain_Content = $pMain.children("#pMain_Content");
+			$pMain_Cal = $pMain_HD.children("#pMain_Cal");
+			$pMC_LB = $pMain_Cal.find("#pMC_LB");
+			$pMC_RB = $pMain_Cal.find("#pMC_RB");
+
+			$NB_Sch = $pMain_HD.find("ul #NB_Sch");
+			$NB_Venue = $pMain_HD.find("ul #NB_Venue");
+			$NB_Fav = $pMain_HD.find("ul #NB_Fav");
+			$NB_Info = $pMain_HD.find("ul #NB_Info");
+
+			$c_Sch = $pMain_Content.children("#c_Sch");
+			$c_Venue = $pMain_Content.children("#c_Venue");
+			$c_Fav = $pMain_Content.children("#c_Fav");
+			$c_Info = $pMain_Content.children("#c_Info");			
+
+			$gObj_cNB = new MK_Navi ( $NB_Sch , $c_Sch );
+
+
+			// Show Schedule Content
+			$gObj_cNB.show();
+
+
+			// add Events
+			$NB_Sch.on("click", function(){
+				$gObj_cNB.change( $NB_Sch , $c_Sch );
+			});
+
+			$NB_Venue.on("click", function(){
+				$gObj_cNB.change( $NB_Venue , $c_Venue );
+
+			});
+
+			$NB_Fav.on("click", function(){
+				$gObj_cNB.change( $NB_Fav , $c_Fav );
+			});
+
+			$NB_Info.on("click", function(){
+				$gObj_cNB.change( $NB_Info , $c_Info );
+			});
+
+		});
+
+	</script>
+
 	<script src="js/jquery.mobile-1.2.0-rc.1.min.js"></script>
 
-</head> 
+</head>
+
 <body> 
-Jquery Mobile
+
+<!-- Start of Main Page -->
+<div data-role="page" id="pMain"  data-theme="d">
+
+	<div data-role="header"  data-position="fixed" data-tap-toggle="false" id="pMain_HD"> 			
+		<h1>MassKara 2012</h1>
+
+		<div data-role="navbar">
+		   <ul>
+			 <li><a data-icon="grid" id="NB_Sch" class="ui-btn-active">Schedule</a></li>
+			 <li><a data-icon="home" id="NB_Venue" >Venues</a></li>
+			 <li><a data-icon="star" id="NB_Fav" >Favorite</a></li>
+			 <li><a data-icon="info" id="NB_Info" >Info</a></li>
+		   </ul>
+		</div>
+
+		<div style="clear:both" id="pMain_Cal"> 
+			<div class="ui-grid-b">
+				<div class="ui-block-a">
+					<button data-mini="true" data-inline="true" data-icon="arrow-l"  data-theme="e" id="pMC_LB">6 Oct</button>
+				</div>
+				<div class="ui-block-b">
+					<select name="select-choice-0" id="select-choice-0" data-mini="true" data-theme="c"  id="pMC_Sel">
+						<option value="standard">Sat 12 Oct</option>
+					</select>
+				</div>
+				<div class="ui-block-c" style="text-align:right">
+					<button data-mini="true" data-inline="true" data-icon="arrow-r" data-iconpos="right" data-theme="e" id="pMC_RB">8 Oct</button>
+				</div>
+			</div>
+		</div>
+
+
+	</div>  <!-- /header #pMain_HD -->
+
+	<div data-role="content" id="pMain_Content">
+
+		<div id="c_Sch" class="pm_content"> 
+			Schedule
+		</div>
+
+		<div id="c_Venue" class="pm_content"> 
+			Venues
+		</div>
+
+		<div id="c_Fav" class="pm_content"> 
+			Favorite
+		</div>
+
+		<div id="c_Info" class="pm_content"> 
+			Info
+		</div>
+
+	</div> <!-- /content #pMain_Content -->
+
+
+</div><!-- /page #pMain -->
+
 </body>
 </html>
