@@ -18,15 +18,19 @@
 	<script src="js/jquery-1.8.1.min.js"></script>
 
 	<script>
-		/******************************************************************************************
+/******************************************************************************************
 			Global Var
-		*******************************************************************************************/
+*******************************************************************************************/
 		var $pMain, $pMain_HD, $pMain_Content;
 		var $pMain_Cal, $pMC_LB, $pMC_RB;
 		var $NB_Sch, $NB_Venue, $NB_Fav, $NB_Info;
 		var $c_Sch, $c_Venue, $c_Fav, $c_Info;
 
-		var $gObj_cNB; // Current Navi Content Info
+		var gObj_cNB; // Current Navi Content Info
+
+		var gArr_place, gArr_sList;
+		var gArr_weekDay, gArr_sWeekDay, gArr_month, gArr_sMonth;
+
 
 /****************************************************************
 			Navi Bar Object
@@ -72,12 +76,52 @@
 
 		};
 
+/****************************************************************
+			Schedule Object
+****************************************************************/
+		function MK_Schedule(time, title, place, detail){
+			this.time = time;
+		    this.title = title;
+			this.place = place;
+			this.detail = detail;
+		}
+
+		MK_Schedule.prototype = {
+			constructor: MK_Schedule
+		};
+
+
+/****************************************************************
+			DaySchedules Object
+****************************************************************/
+		function MK_DaySchedules( sDate , sList ){
+			this.sDate = sDate;
+			this.sList = sList; // array of Schedules on sDate
+		}
+
+		MK_Schedule.prototype = {
+			constructor: MK_DaySchedules
+		};
+
+/****************************************************************
+			Place Object
+****************************************************************/
+		function MK_Place(name, addr, latlng){
+			this.name = name;
+			this.addr = addr;
+			this.latlng = latlng;
+		}
+
+		MK_Place.prototype = {
+			constructor: MK_Place
+		};
 
 
 
-		/******************************************************************************************
+
+/******************************************************************************************
 			Util Functions
-		*******************************************************************************************/
+*******************************************************************************************/
 		// Check undefined
 		function isUD ( v ) {
 			return ( typeof ( v ) == "undefined" ? true : false );
@@ -89,18 +133,18 @@
 				console.log( v );	
 			}
 		}
-		
 
-		$(document).on('mobileinit', function() {
-			$.mobile.defaultPageTransition = "none";
-		});
+/******************************************************************************************
+			Init Functions
+*******************************************************************************************/
+		function init_vals(){
+			gArr_weekDay = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
+			gArr_sWeekDay = [ "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" ];
+			gArr_month = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "Decmber"];
+			gArr_sMonth = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+		}
 
-		$(document).ready(function() {
-					$pMain = $("#pMain");
-		 });
-
-		$(document).on('pageinit', '#pMain', function() {
-
+		function init_Selectors ( ) {
 			$pMain_HD = $pMain.children("#pMain_HD");
 			$pMain_Content = $pMain.children("#pMain_Content");
 			$pMain_Cal = $pMain_HD.children("#pMain_Cal");
@@ -115,31 +159,181 @@
 			$c_Sch = $pMain_Content.children("#c_Sch");
 			$c_Venue = $pMain_Content.children("#c_Venue");
 			$c_Fav = $pMain_Content.children("#c_Fav");
-			$c_Info = $pMain_Content.children("#c_Info");			
+			$c_Info = $pMain_Content.children("#c_Info");		
+		}
 
-			$gObj_cNB = new MK_Navi ( $NB_Sch , $c_Sch );
+		function init_Places ( ) {
+			gArr_place = [
+								new MK_Place( "Bacolod Public Plaza", "Downtown Bacolod City Philippines", ["10.669296", "122.946421"] )
+								, new MK_Place( "MassKara Carnival Site", "Downtown Bacolod City Philippines", ["10.669590293779533", "122.94514378585814"] )
+								, new MK_Place( "SM City Event Center", "Rizal Street Bacolod City Philippines", ["10.671865857143", "122.9439727"] )
+								, new MK_Place( "Tourism Strip", "Lacson Street Bacolod City Philippines", ["10.67896135166121", "122.95415734438487"] )
+								, new MK_Place( "Ground Floor, LCC Rizal Main Gate", "Downtown Bacolod City Philippines", ["10.669590293779533", "122.94514378585814"] )
+								, new MK_Place( "Orange Gallery", "Art District Bacolod City Philippines", ["10.669590293779533", "122.94514378585814"] )
+							];
+		}
 
+		function init_Schedules ( ) {
+
+			// Schedule Dates
+			var mkYear = 2012;
+			var mkMonth = 9;
+			var allDay = "all-day";
+			var sDate, sList;
+
+			gArr_sList = [];
+
+			// 2012 Oct 1
+			sDate = new Date(mkYear, mkMonth, 1);
+			sList = [
+						new MK_Schedule(allDay, "Opening of the Festival sites", 0)
+						, new MK_Schedule(allDay, "Opening of Carnival sites", 1)
+						, new MK_Schedule(allDay, "GMA DanssKara:The MassKara Dance Showdown Eliminations")
+						, new MK_Schedule(allDay, "Fireworks")
+						, new MK_Schedule(["7:00 pm", "11:00 pm"], "Opening of 2012 MassKara Festival and DanssKara Elimination (GMA Dance Showdown)", 0)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 5
+			sDate = new Date(mkYear, mkMonth, 5);
+			sList = [
+						new MK_Schedule(allDay, "MassKara Art Weekend", undefined,"Opening of art events: MassKara 9 group show, Magika MassKara, Art Tour")
+						, new MK_Schedule(["7:00 pm", "10:00 pm"], "Unveiling: Majika MassKara 9: Ang Bukid Kag Baybay sa Bacolod", 0)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 6
+			sDate = new Date(mkYear, mkMonth, 6);
+			sList = [
+						new MK_Schedule(allDay, "MassKara Art Weekend")
+						, new MK_Schedule(["5:00 pm", "6:00 pm"], "Opening: LCC Giant MassKara Puppets Replica Exhibits", 4)
+						, new MK_Schedule(["6:00 pm", "8:00 pm"], "Opening: 9D – A Visual Arts Exhibit by the MassKara 9", 5)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 7
+			sDate = new Date(mkYear, mkMonth, 7);
+			sList = [
+						new MK_Schedule(allDay, "MassKara Art Weekend", undefined,"Opening of art events: MassKara 9 group show, Magika MassKara, Art Tour")
+						, new MK_Schedule(["6:00 pm", "8:00 pm"], "Installation: Majika Masskara floats in host venues")
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 12
+			sDate = new Date(mkYear, mkMonth, 12);
+			sList = [
+						new MK_Schedule(["12:00 pm", "1:00 pm"], "i-Witness DocuFest wth GMA News and Public Affairs personalities", 2)					
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 13
+			sDate = new Date(mkYear, mkMonth, 13);
+			sList = [
+						new MK_Schedule(["5:00 pm", "7:00 pm"], "Little Miss MassKara (pageant night)")
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 14
+			sDate = new Date(mkYear, mkMonth, 14);
+			sList = [
+						new MK_Schedule(["5:00 pm", "9:00 pm"], "MassKara Preview: A Fashion Show of MassKara Streetdancing Costumes", 0)
+					];
+			
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 19
+			sDate = new Date(mkYear, mkMonth, 19);
+			sList = [
+						new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 1: Lights Up, Music On", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["7:00 pm", "9:00 pm"], "(Pagkilita-ay, Pakita-ay) parade kicks off from various parts of Bacolod", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["9:00 pm", "10:00 pm"], "Floats converge", 3)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 20
+			sDate = new Date(mkYear, mkMonth, 20);
+			sList = [
+						new MK_Schedule(["3:00 pm", "7:00 pm"], "Streetdance – Schools Category From Libertad Araneta to Bacolod Public Plaza", 0)
+						, new MK_Schedule(["4:00 pm", "6:00 pm"], "Kapuso Mall Show", 2)
+						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions Schools", 0)
+						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 2: Lights Up, Music On", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["8:00 pm", "9:00 pm"], "Electric MassKara Performing Float Competitions Kick off ", 2, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["9:00 pm", "11:00 pm"], "Electric MassKara Floats converge", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["10:30 pm", "11:30 pm"], "Cosplay on the Glow: The ABS-CBN/ MOR 101.5 Electric Cosplay competition", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 21
+			sDate = new Date(mkYear, mkMonth, 21);
+			sList = [
+						new MK_Schedule(["3:00 pm", "10:00 pm"], "Streetdance – Barangay Category From Libertad Araneta to Bacolod Public Plaza", 0)
+						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions Barangays", 0)
+						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 3", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["7:00 pm", "9:00 pm"], "Winners’ Showdown Electric MassKara float competition")
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+			// 2012 Oct 22
+			sDate = new Date(mkYear, mkMonth, 22);
+			sList = [
+						new MK_Schedule(["7:00 pm", "11:00 pm"], "MassKara Festival Closing Ceremonies/DanssKara Grand Finals/Kapuso Night", 0, "Street parties at Bacolod Public Plaza continue")					
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+		}
+
+
+		$(document).on('mobileinit', function() {
+			$.mobile.defaultPageTransition = "none";
+		});
+
+		$(document).ready(function() {
+			$pMain = $("#pMain");
+
+			init_vals();
+			init_Places();
+			init_Schedules();
+
+		 });
+
+		$(document).on('pageinit', '#pMain', function() {
+			init_Selectors();
+
+
+			gObj_cNB = new MK_Navi ( $NB_Sch , $c_Sch );
 
 			// Show Schedule Content
-			$gObj_cNB.show();
+			gObj_cNB.show();
 
 
 			// add Events
 			$NB_Sch.on("click", function(){
-				$gObj_cNB.change( $NB_Sch , $c_Sch );
+				gObj_cNB.change( $NB_Sch , $c_Sch );
 			});
 
 			$NB_Venue.on("click", function(){
-				$gObj_cNB.change( $NB_Venue , $c_Venue );
+				gObj_cNB.change( $NB_Venue , $c_Venue );
 
 			});
 
 			$NB_Fav.on("click", function(){
-				$gObj_cNB.change( $NB_Fav , $c_Fav );
+				gObj_cNB.change( $NB_Fav , $c_Fav );
 			});
 
 			$NB_Info.on("click", function(){
-				$gObj_cNB.change( $NB_Info , $c_Info );
+				gObj_cNB.change( $NB_Info , $c_Info );
 			});
 
 		});
