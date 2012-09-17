@@ -60,6 +60,7 @@
 		var gObj_Cal_UI; // Calendar UI
 
 		var gArr_place, gArr_sList;
+		var gArr_evtListByPlace; // Schedules by Place
 		var gArr_weekDay, gArr_sWeekDay, gArr_month, gArr_sMonth;
 
 
@@ -70,6 +71,9 @@
 		// Page Map
 		var $pMap;
 		var gObj_Map;
+
+		// Place List
+		var gObj_pList;
 
 /****************************************************************
 			Navi Bar Object
@@ -155,10 +159,92 @@
 
 
 /****************************************************************
+			Place List Object
+****************************************************************/
+		function MK_Place_List( ){
+			this.$pList = $c_Venue.children('ul');
+			
+			this.init_evtListByPlace();
+			this.create_pList();
+		}
+
+		MK_Place_List.prototype = {
+			constructor: MK_Place_List
+
+			, init_evtListByPlace : function ( ) { // init gArr_evtListByPlace
+
+				// Schedule Array by Places
+				gArr_evtListByPlace = [];
+				for ( var i = 0, iCnt = gArr_place.length; i < iCnt; i++ ) {
+					gArr_evtListByPlace.push([]);
+				}
+
+				for( var i = 0, days = gArr_sList.length; i < days; i++){
+					var sList = gArr_sList[i].sList;
+					var sCnt = sList.length;
+
+					for(var j=0; j < sCnt; j++) {
+						var s = sList[j];
+
+						if ( !isUD( s.place ) ) {
+							gArr_evtListByPlace[ s.place ].push( [i , j] );
+						}						
+					
+					}
+
+				}
+
+			}
+
+			, create_pList : function ( ) {
+				var pListHtml = '';
+				var pCnt = gArr_place.length;
+				
+				for(var i = 0; i < pCnt; i++){
+					var p = gArr_place[i];
+
+					var eCount = gArr_evtListByPlace[i].length;
+					var txtEvt = ( ( eCount > 1 ) ?  eCount + " Events" : eCount + " Event" );
+
+					pListHtml += '<li data-idx="' + i + '"><img src="img/v' + i + '.png" />';
+					pListHtml += '<h3 class="ui-li-heading">' + p.name + '</h3>';
+					pListHtml += '<p class="ui-li-desc">';
+					pListHtml += '<div class="ui-grid-a"><div class="ui-block-a">';				
+					pListHtml += '<button type="button" data-bType="event" data-mini="true" data-inline="true" data-icon="info" data-theme="d">' +  txtEvt + '</button></div>';
+					pListHtml += '<div class="ui-block-b"><button type="button" data-bType="map" data-mini="true" data-inline="true" data-icon="search" data-theme="e">Map</button></div></div></p></li>';
+
+				}
+			
+				this.$pList.html(pListHtml).listview('refresh');		
+				
+				var $pList_Button = this.$pList.find("button");				
+				$pList_Button.button().button('refresh');
+
+				// add Events
+				$pList_Button.on( "click", function() {
+					var $this = $(this);
+					var idx = $this.closest("li").data("idx");
+
+					if( $this.attr("data-bType") == "map" ) {
+					// Open Map Window
+						show_Page_Map( idx );
+
+					} else {
+
+					}
+				});
+
+
+			}
+		};
+			
+
+/****************************************************************
 			Map Page Object
 ****************************************************************/
 		function MK_Map( ){
 			
+			this.$pM_header = $pMap.find("#pM_header");
 			this.$googleMap = $pMap.find("#pMap_content > #googleMap");
 			this.pIdx = -1;
 		}
@@ -170,9 +256,8 @@
 				this.pIdx = pIdx;
 
 				//set Title and Addr
-				var $pM_header = $pMap.find("#pM_header");
-				$pM_header.find("#pM_title").text( gArr_place[pIdx].name );
-				$pM_header.find("#pM_addr").text( gArr_place[pIdx].addr );
+				this.$pM_header.find("#pM_title").text( gArr_place[pIdx].name );
+				this.$pM_header.find("#pM_addr").text( gArr_place[pIdx].addr );
 
 				//set Map height
 				this.setMapHeight();
@@ -181,7 +266,7 @@
 			}
 			
 			, setMapHeight : function(){
-				var height = $(window).height() - parseInt($pMap.find('div[data-role="header"]').css("height"), 10) - 2; //Border
+				var height = $(window).height() - parseInt(this.$pM_header.css("height"), 10) - 2; //Border
 
 				height += "px";
 				this.$googleMap.css("height", height);
@@ -438,6 +523,7 @@
 			gArr_sWeekDay = [ "SU", "MO", "TU", "WE", "TH", "FR", "SA" ];
 			gArr_month = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "Decmber"];
 			gArr_sMonth = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 		}
 
 		function init_Selectors ( ) {
@@ -612,10 +698,11 @@
 			$pVS_date_txt.text( sDate.getDate() + " " + gArr_month[sDate.getMonth()] + " " + sDate.getFullYear() )
 
 			if( isUD( schedule.place ) ) {
-
+				$pVSche.find("#pVS_h #pVS_hMapBtn").button('disable'); // Hide show Map button
 				$pVS_place.hide();
 
 			} else {
+				$pVSche.find("#pVS_h #pVS_hMapBtn").button('enable');
 				$pVS_place.show();
 
 				var place = gArr_place[ schedule.place ];
@@ -735,6 +822,8 @@
 			});		
 
 			gObj_Cal_UI = new MK_UI_Calendar( );
+			
+			gObj_pList = new MK_Place_List( );
 
 		});
 
@@ -829,7 +918,7 @@
 		</div>
 
 		<div id="c_Venue" class="pm_content"> 
-			Place
+			<ul data-role="listview" data-theme="c" ></ul>
 		</div>
 
 		<div id="c_Fav" class="pm_content"> 
@@ -838,9 +927,9 @@
 
 		<div id="c_Info" class="pm_content"> 
 			<ul data-role="listview" data-mini="true" data-inset="true" data-theme="c">
-				<li><a><img src="css/image/star.png" class="ui-li-icon" /><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
-				<li><a><img src="css/image/star.png" class="ui-li-icon" /><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
-				<li><a><img src="css/image/star.png" class="ui-li-icon" /><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
+				<li><a><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
+				<li><a><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
+				<li><a><h3 class="ui-li-heading">adsfj adfj adf</h3><p class="ui-li-desc">adfdaf</p></a></li>
 			</ul>
 
 
@@ -855,7 +944,7 @@
 	
 	<div data-role="header" data-position="fixed" data-tap-toggle="false" data-theme="b" id="pVS_h">
 		<h1>MassKara 2012</h1>
-		<a data-icon="search" class="ui-btn-right" data-iconpos="right" data-theme="e" id="pVS_hMapBtn">Map</a>
+		<button data-icon="search" class="ui-btn-right" data-iconpos="right" data-theme="e" id="pVS_hMapBtn">Map</button>
 	</div>
 
 	<div data-role="content" id="pVS_content">
