@@ -42,6 +42,8 @@
 
 	</style>
 	
+	<script src="http://maps.googleapis.com/maps/api/js?key=AIzaSyCI0GG4U1L9Kq4_7ZDPL7qjJcyq2j7xXuY&sensor=false"></script>
+
 	<script src="js/jquery-1.8.1.min.js"></script>
 
 	<script>
@@ -63,6 +65,11 @@
 
 		// Page View Schedule
 		var $pVSche, $pVS_title_txt, $pVS_time_txt, $pVS_date_txt, $pVS_place, $pVS_detail;
+
+
+		// Page Map
+		var $pMap;
+		var gObj_Map;
 
 /****************************************************************
 			Navi Bar Object
@@ -104,8 +111,6 @@
 				$new_content.show();
 				this.$content = $new_content;
 			}	
-
-
 		};
 
 /****************************************************************
@@ -147,6 +152,79 @@
 		MK_Place.prototype = {
 			constructor: MK_Place
 		};
+
+
+/****************************************************************
+			Map Page Object
+****************************************************************/
+		function MK_Map( ){
+			
+			this.$googleMap = $pMap.find("#pMap_content > #googleMap");
+			this.pIdx = -1;
+		}
+
+		MK_Map.prototype = {
+			constructor: MK_Map
+
+			, showMap : function( pIdx ) {
+				this.pIdx = pIdx;
+
+				//set Title and Addr
+				var $pM_header = $pMap.find("#pM_header");
+				$pM_header.find("#pM_title").text( gArr_place[pIdx].name );
+				$pM_header.find("#pM_addr").text( gArr_place[pIdx].addr );
+
+				//set Map height
+				this.setMapHeight();
+				display_map( pIdx );
+
+			}
+			
+			, setMapHeight : function(){
+				var height = $(window).height() - parseInt($pMap.find('div[data-role="header"]').css("height"), 10) - 2; //Border
+
+				height += "px";
+				this.$googleMap.css("height", height);
+				
+			}
+		
+		};
+
+		// Draw Google Map
+		function display_map( idx )
+		{
+
+			var pCenter = new google.maps.LatLng( gArr_place[idx].latlng[0] , gArr_place[idx].latlng[1]);
+
+			var mapProp = {
+				center: pCenter,
+				zoom:16,
+				mapTypeControl:true,
+				mapTypeId: google.maps.MapTypeId.ROADMAP
+			};
+			var map = new google.maps.Map(document.getElementById("googleMap"),mapProp);
+
+			var marker = new google.maps.Marker({
+				position:pCenter,
+			});
+			marker.setMap(map);
+
+			if ( idx == 3 ) {
+				var p1 = new google.maps.LatLng(10.674976063084513, 122.95267676500862);
+				var p2 = new google.maps.LatLng(10.683853274639183, 122.95630311159675);
+				var sPath = [ p1, p2 ];
+
+				var mkPath=new google.maps.Polyline({
+				  path: sPath,
+				  strokeColor: "#f00000",
+				  strokeOpacity: 0.8,
+				  strokeWeight: 6
+				  });
+
+				mkPath.setMap(map);
+				
+			}
+		}
 
 /****************************************************************
 			Calendar UI Object
@@ -317,7 +395,6 @@
 			}
 		}
 
-
 		// Return  -1 : di is old date ,  0 : d1 == d2 ,  1 : d2 is old date
 		function cmp_date( d1 , d2 ) {
 
@@ -336,6 +413,22 @@
 
 			return sTime;
 		}
+
+		// Check Network Connection for Mobile Device
+		function checkConnection() {
+
+			if( typeof(Connection) != "undefined"){
+				var networkState = navigator.network.connection.type;
+				if( networkState == Connection.NONE) {
+					alert("Sorry! For this service, you need a network connection!");
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+
 
 /******************************************************************************************
 			Init Functions
@@ -368,6 +461,8 @@
 			$c_Info = $pMain_Content.children("#c_Info");	
 			
 			$c_Sch_List = $c_Sch.children("ul"); // Schedule List
+
+			$pMap = $("#pMap");
 		}
 
 		function init_Places ( ) {
@@ -506,9 +601,9 @@
 		function show_Page_View_Schedule( idx , sidx){
 			$.mobile.changePage("#pVSche");
 			
-			$pVSche.data("idx" , idx);
-
 			var schedule = gArr_sList[idx].sList[sidx];
+
+			$pVSche.data("pIdx" , schedule.place);
 
 			$pVS_title_txt.text( schedule.title );
 			
@@ -542,9 +637,19 @@
 			
 		}
 
+		function show_Page_Map( idx ){
+			
+			// Network Check
+			if ( checkConnection() ){
+				$.mobile.changePage("#pMap");
+				gObj_Map.showMap( idx );
+			}
+		}
+
 
 		$(document).on('mobileinit', function() {
 			$.mobile.defaultPageTransition = "none";
+
 		});
 
 		$(document).ready(function() {
@@ -553,6 +658,18 @@
 			init_vals();
 			init_Places();
 			init_Schedules();
+
+			// For Screen Rotoation
+			$(window).resize(function () {
+				var ap = $.mobile.activePage.attr("id");
+
+				// Map Page : Change Height
+				if( ap == "pMap" ) {
+					gObj_Map.setMapHeight();
+				}
+
+			});
+
 
 		 });
 
@@ -634,11 +751,25 @@
 
 			$pVS_place.on("click", "#pVS_map", function(){
 				// Show Map Page
-
+				show_Page_Map( $pVSche.data("pIdx") );
 			});
 
-			
+
+			$pVSche.find("#pVS_h #pVS_hMapBtn").on("click", function(){
+				// Show Map Page
+				show_Page_Map( $pVSche.data("pIdx") );
+			});
+
+
 		});
+
+
+		$(document).on('pageinit', '#pMap', function() {
+			
+			gObj_Map = new MK_Map();
+
+		});
+
 
 	</script>
 
@@ -722,8 +853,9 @@
 <!-- Start of View Schedule Page -->
 <div data-role="page" id="pVSche"  data-theme="d" data-add-back-btn="true">
 	
-	<div data-role="header" data-position="fixed" data-tap-toggle="false" data-theme="b">
+	<div data-role="header" data-position="fixed" data-tap-toggle="false" data-theme="b" id="pVS_h">
 		<h1>MassKara 2012</h1>
+		<a data-icon="search" class="ui-btn-right" data-iconpos="right" data-theme="e" id="pVS_hMapBtn">Map</a>
 	</div>
 
 	<div data-role="content" id="pVS_content">
@@ -756,6 +888,21 @@
 </div><!-- /page #pVSche -->
 
 
+<!-- Start of Map Page -->
+<div data-role="page" id="pMap"  data-theme="d" data-add-back-btn="true">
+	
+	<div data-role="header" data-position="fixed" data-tap-toggle="false" data-theme="e" id="pM_header">
+		<h1 id="pM_title">title</h1>
+		<div style="text-align:center; font-weight:normal;" id="pM_addr">addr</div>
+	</div>
+
+	<div data-role="content" id="pMap_content" style="padding:0">
+
+		<div id="googleMap" style="width:100%;"></div>
+
+	</div> <!-- /content  -->
+
+</div><!-- /page #pMap -->
 
 
 
