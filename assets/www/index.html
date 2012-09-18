@@ -45,7 +45,8 @@
 	<script src="http://maps.googleapis.com/maps/api/js?key=AIzaSyCI0GG4U1L9Kq4_7ZDPL7qjJcyq2j7xXuY&sensor=false"></script>
 
 	<script src="js/jquery-1.8.1.min.js"></script>
-
+	<script type="text/javascript" charset="utf-8" src="js/cordova-2.0.0.js"></script>
+	
 	<script>
 /******************************************************************************************
 			Global Var
@@ -74,6 +75,8 @@
 
 		// Place List
 		var gObj_pList;
+
+		var $pSub_pList;
 
 /****************************************************************
 			Navi Bar Object
@@ -230,7 +233,10 @@
 						show_Page_Map( idx );
 
 					} else {
+						// Show Shedule List by Place
+						$.mobile.changePage("#pSub_pList");
 
+						show_pSub_sList( idx );
 					}
 				});
 
@@ -724,6 +730,63 @@
 			
 		}
 
+		
+		// Show Shedule List by Place
+		function show_pSub_sList( idx ) {
+
+			// create Events List
+			var txtList = '';
+			var evtPlace = gArr_evtListByPlace[idx];
+
+			// place Title
+			$pSub_pList.find("#pSub_pl_hd #pSubPL__pTitle").text( gArr_place[idx].name );
+
+			var cDateIdx = -1;
+			
+			for( var i=0, iCnt = evtPlace.length; i < iCnt; i++ ){
+				var didx = evtPlace[i][0];
+				var sidx = evtPlace[i][1];
+
+				// Set Date
+				if( didx != cDateIdx ) {
+				// New Date
+
+					if( cDateIdx != -1 ) {
+						txtList += '</ul></div>'
+					}
+					
+					var nDate = gArr_sList[didx].sDate;
+					var tDay = gArr_weekDay[ nDate.getDay() ] + " " + nDate.getDate() + " " + gArr_month[nDate.getMonth()] + " " + nDate.getFullYear();
+
+					txtList += '<div  data-role="collapsible"  data-collapsed="false" data-mini="true">';
+					txtList += '<h3>' + tDay + '</h3>';
+					txtList += '<ul data-role="listview" data-mini="true" data-inset="true" data-theme="c">'
+
+					cDateIdx = didx;
+				}
+
+				// Set Schedule
+				var s = gArr_sList[didx].sList[sidx];
+
+				txtList += '<li data-didx="' + didx + '" data-sidx="' + sidx + '"><a>';
+				txtList += '<img src="img/star.png" class="ui-li-icon fav_icon" data-didx="' + didx + '" data-sidx="' + sidx + '" />';
+				txtList += '<p class="ui-li-desc"><b>' + s.title + '</b><br/>' + getSTime(s) + '</p></a></li>';
+			}
+
+			txtList += '</ul></div>'
+
+			var $content = $pSub_pList.find("#pSub_pl_content");
+			$content.html(txtList);
+
+			$content.find("ul").listview().listview('refresh');
+
+			$content.find('div[data-role=collapsible]').collapsible({theme:'b',refresh:true}); 
+
+			$pSub_pList.data("pIdx", idx);
+
+		}
+
+
 		function show_Page_Map( idx ){
 			
 			// Network Check
@@ -733,10 +796,33 @@
 			}
 		}
 
+		// Init Back Button Event
+		function initBackBtnEvt() {
+			document.addEventListener("deviceready", onDR, false);
+		} 
+
+		function onDR(){
+			document.addEventListener("backbutton", backKeyDown, true);
+
+		}
+
+		function backKeyDown() { 
+
+			var ap = $.mobile.activePage.attr("id");
+
+			log(" Back Key = " + ap);
+
+			if( ap == "pMain" ) {
+				navigator.app.exitApp();
+			} else {
+				history.back();
+			}
+
+		}
+
 
 		$(document).on('mobileinit', function() {
 			$.mobile.defaultPageTransition = "none";
-
 		});
 
 		$(document).ready(function() {
@@ -756,6 +842,8 @@
 				}
 
 			});
+
+			initBackBtnEvt();
 
 
 		 });
@@ -859,6 +947,26 @@
 
 		});
 
+		$(document).on('pageinit', '#pSub_pList', function() {
+			
+			$pSub_pList = $("#pSub_pList");
+
+			// Add Event
+			$pSub_pList.find("#pSub_pl_hd #pSubPL__mBtn").on( 'click', function() {
+				show_Page_Map( $pSub_pList.data("pIdx") );
+
+			});
+
+			$pSub_pList.on( 'click', 'li a', function() {
+
+				var $li = $(this).closest("li");
+
+				show_Page_View_Schedule( $li.data("didx") , $li.data("sidx") );
+
+			});
+
+
+		});
 
 	</script>
 
@@ -992,6 +1100,25 @@
 	</div> <!-- /content  -->
 
 </div><!-- /page #pMap -->
+
+
+<!-- Start of Sub Place List  -->
+<div data-role="page" id="pSub_pList"  data-theme="d" data-add-back-btn="true">
+	
+	<div data-role="header" data-position="fixed" data-tap-toggle="false" data-theme="d" id="pSub_pl_hd">
+		<h1>MassKara 2012</h1>
+		<button data-icon="search" class="ui-btn-right" data-iconpos="right" data-theme="e" id="pSubPL__mBtn">Map</button>
+		<div class="ui-bar ui-bar-a" style="text-align:center" id="pSubPL__pTitle">
+			place
+		</div>
+	</div> <!-- /header  -->
+
+	<div data-role="content" id="pSub_pl_content">
+
+
+	</div> <!-- /content  -->
+
+</div> <!-- /page #pSub_pList -->
 
 
 
