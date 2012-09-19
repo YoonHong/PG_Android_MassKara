@@ -3,7 +3,8 @@
 <head> 
 	
 	<title>MassKara 2012</title> 
-
+	
+	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1"> 
 	
 	<link rel="stylesheet" href="css/jquery.mobile-1.2.0-rc.1.min.css" />
@@ -59,6 +60,7 @@
 
 		var gObj_cNB; // Current Navi Content Info
 		var gObj_Cal_UI; // Calendar UI
+		var gObj_Favorite;
 
 		var gArr_place, gArr_sList;
 		var gArr_evtListByPlace; // Schedules by Place
@@ -66,7 +68,7 @@
 
 
 		// Page View Schedule
-		var $pVSche, $pVS_title_txt, $pVS_time_txt, $pVS_date_txt, $pVS_place, $pVS_detail;
+		var $pVSche, $pVS_title_txt, $pVS_star, $pVS_time_txt, $pVS_date_txt, $pVS_place, $pVS_detail;
 
 
 		// Page Map
@@ -91,6 +93,7 @@
 			constructor: MK_Navi,
 			
 			show : function () {  // Show Content
+
 				this.$content.show();
 			},
 
@@ -115,10 +118,21 @@
 
 				// Change Content 
 				this.$content.hide();
+
+				if ( $new_content ==  $c_Fav) { 	// Update Favorite List
+					gObj_Favorite.showFavList();
+				
+				} else if ( $new_content == $c_Sch  ) {  // Update Shedule List
+					gObj_Cal_UI.updateIcon();
+				}
+
 				$new_content.show();
 				this.$content = $new_content;
 			}	
+
 		};
+
+
 
 /****************************************************************
 			Schedule Object
@@ -317,6 +331,141 @@
 			}
 		}
 
+
+/****************************************************************
+			Favorite Object
+****************************************************************/
+		function MK_Favorite ( ){
+			
+			this.nameLS = 'favData';
+			this.fData;
+			
+			this.init();
+		}
+
+		MK_Favorite.prototype = {
+			constructor: MK_Favorite
+			, init : function () {
+				// init Local Storage
+				if ( typeof localStorage[ this.nameLS ] == "undefined" ){
+
+					// Create New Data					
+					this.fData = [];
+
+					var tmp_arr;
+					
+					for ( var i = 0, iCnt = gArr_sList.length; i < iCnt ; i++ ) {
+						tmp_arr = [];	
+						for ( var j = 0, jCnt = gArr_sList[i].sList.length ; j < jCnt ; j++ ) {
+												
+							tmp_arr.push(0);
+						}
+						
+						this.fData.push(tmp_arr);
+					}
+					
+					this.save();
+
+				} else {
+					this.fData = JSON.parse(localStorage[ this.nameLS ]);
+				}
+
+				// add Events
+				$c_Fav.find("ul").on( "click", "li[data-role != list-divider]", function(){
+					show_Page_View_Schedule ( $(this).data("didx") , $(this).data("sidx") );
+
+					return false;
+				});		
+
+				$c_Fav.find("ul").on( "click", ".flist_del", function() {								
+
+					var $li = $(this).closest("li");
+
+					gObj_Favorite.setFavIcon( $li.data("didx") , $li.data("sidx") );
+					gObj_Favorite.showFavList();
+
+					return false;
+				});
+
+
+
+			}
+
+			, save : function() {
+				localStorage[this.nameLS] = JSON.stringify( this.fData );
+			}
+
+			, getFavIcon : function ( didx , sidx ) {
+				var fIcon = ["star.png", "star2.png"];
+				
+				var imgPath = "img/" + fIcon[ this.fData[didx][sidx] ]
+
+				return imgPath;				
+			}
+
+			, setFavIcon : function ( didx, sidx, $img ) {
+				var v = this.fData[didx][sidx];
+
+				v++;
+				this.fData[didx][sidx] = v % 2;
+
+				if ( !isUD($img) ) {
+					$img.attr("src", this.getFavIcon( didx, sidx ) );
+				}
+
+			}
+
+			, showFavList : function ( ) {
+				var fListHtml = "";
+				var $fList = $c_Fav.find("ul");
+
+				// Find Selected Favoite Icon
+				var fItemCount = 0;
+				for ( var i = 0, iCnt = gArr_sList.length; i < iCnt ; i++ ) {
+					var firstDivier = true;					
+
+					for ( var j = 0, jCnt = gArr_sList[i].sList.length ; j < jCnt ; j++ ) {
+						
+						if ( this.fData[i][j] == 1 ){
+							var jSchedule = gArr_sList[i].sList[j];
+							var sPlace = ( typeof(jSchedule.place) != "undefined") ? ( "@ " + gArr_place[jSchedule.place].name ) : "";
+							var sTime = getSTime ( jSchedule );
+
+							if ( firstDivier ) {
+								firstDivier = false;
+								
+								var cDay = gArr_sList[i].sDate;
+								var tDay = gArr_weekDay[ cDay.getDay() ] + " " + cDay.getDate() + " " + gArr_month[cDay.getMonth()] + " " + cDay.getFullYear();
+								
+								fListHtml += '<li data-role="list-divider">' + tDay + '</li>';
+							}
+							
+							fItemCount++;
+
+							fListHtml += '<li data-didx="' + i + '" data-sidx="' + j + '"><a>';
+							fListHtml += '<h3 class="ui-li-heading">' + jSchedule.title + '</h3>';
+							fListHtml += '<p class="ui-li-desc">' + sTime + " " + sPlace + '</p>';
+							fListHtml += '</a><a class="flist_del">Delete</a></li>';
+						}
+					}
+
+				}		
+
+				// No Selected Event
+				if ( fItemCount == 0 ){
+					fListHtml = '<li data-role="list-divider"><h3 class="ui-li-heading">No events added. <br/>Tap a star icon to add an event.</h3></li>';
+				}
+
+				$fList.html( fListHtml ).listview('refresh');		
+				
+			}
+
+		};
+
+
+
+
+
 /****************************************************************
 			Calendar UI Object
 ****************************************************************/
@@ -371,6 +520,16 @@
 		MK_UI_Calendar.prototype = {
 			constructor: MK_UI_Calendar
 
+			, updateIcon : function () {
+				// Check schedule List Favorite Icon
+				var $img = $c_Sch_List.find("li[data-role != list-divider] a img")
+				var didx = gObj_Cal_UI.idx;
+				
+				$img.each( function(i) {
+					$(this).attr("src", gObj_Favorite.getFavIcon( didx, i ) );
+				});
+			}
+
 			, showList : function () {
 				
 				var sList = gArr_sList[this.idx].sList;
@@ -385,7 +544,8 @@
 					var pidx = cs.place;
 					var place = ( isUD( gArr_place[pidx] ) ? "" : " @ " + gArr_place[pidx].name );
 
-					txt += '<li data-idx="' + this.idx + '" data-sidx="' + i + '" ><a href="#"><img src="img/star.png" class="ui-li-icon" />';
+					txt += '<li data-idx="' + this.idx + '" data-sidx="' + i + '" ><a>';
+					txt += '<img src="' +  gObj_Favorite.getFavIcon( this.idx, i ) + '" class="ui-li-icon" />';
 					txt += '<h3 class="ui-li-heading">' + title + '</h3>';
 					txt += '<p class="ui-li-desc">' + getSTime( cs ) + place + '</p></a></li>';			
 				}
@@ -396,6 +556,9 @@
 			, setCalUI : function () {
 
 				$pMC_Sel.text(this.getBtnTxt( this.idx , 0 )).button('refresh');
+
+				if($pMC_RB.parent().css("display") == "none") $pMC_RB.parent().show();
+				if($pMC_LB.parent().css("display") == "none") $pMC_LB.parent().show();
 
 				// Set Left, Right Buttons
 				if ( this.idx == 0 ) {
@@ -409,9 +572,6 @@
 					$pMC_LB.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
 
 				} else {
-					if($pMC_RB.parent().css("display") == "none") $pMC_RB.parent().show();
-					if($pMC_LB.parent().css("display") == "none") $pMC_LB.parent().show();
-
 					$pMC_LB.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
 					$pMC_RB.text( this.getBtnTxt( this.idx + 1 ) ).button('refresh');
 				}
@@ -696,7 +856,11 @@
 			var schedule = gArr_sList[idx].sList[sidx];
 
 			$pVSche.data("pIdx" , schedule.place);
+			$pVSche.data( "didx" , idx );
+			$pVSche.data( "sidx" , sidx );
+			$pVSche.data( "ovF" , gObj_Favorite.fData[idx][sidx] );
 
+			$pVS_star.attr("src", gObj_Favorite.getFavIcon( idx , sidx ) );
 			$pVS_title_txt.text( schedule.title );
 			
 			var sDate = gArr_sList[idx].sDate;
@@ -769,8 +933,9 @@
 				var s = gArr_sList[didx].sList[sidx];
 
 				txtList += '<li data-didx="' + didx + '" data-sidx="' + sidx + '"><a>';
-				txtList += '<img src="img/star.png" class="ui-li-icon fav_icon" data-didx="' + didx + '" data-sidx="' + sidx + '" />';
+				txtList += '<img src="img/star.png" class="ui-li-icon fav_icon" />';
 				txtList += '<p class="ui-li-desc"><b>' + s.title + '</b><br/>' + getSTime(s) + '</p></a></li>';
+			
 			}
 
 			txtList += '</ul></div>'
@@ -796,16 +961,19 @@
 			}
 		}
 
-		// Init Back Button Event
-		function initBackBtnEvt() {
-			document.addEventListener("deviceready", onDR, false);
+
+		// Init Device Event
+		function initDeviceEvt() {
+			document.addEventListener("deviceready", onDR, false);			
 		} 
 
 		function onDR(){
 			document.addEventListener("backbutton", backKeyDown, true);
+			document.addEventListener("pause", onPause, false);
 
 		}
 
+		// Back Key
 		function backKeyDown() { 
 
 			var ap = $.mobile.activePage.attr("id");
@@ -813,12 +981,22 @@
 			log(" Back Key = " + ap);
 
 			if( ap == "pMain" ) {
+				// Save favorite to Local Storage
+				gObj_Favorite.save();
+
 				navigator.app.exitApp();
 			} else {
 				history.back();
 			}
 
 		}
+
+		// Pause
+		function onPause() { 
+			gObj_Favorite.save();
+		}
+
+
 
 
 		$(document).on('mobileinit', function() {
@@ -843,14 +1021,15 @@
 
 			});
 
-			initBackBtnEvt();
-
+			initDeviceEvt();
 
 		 });
 
 
 		$(document).on('pageinit', '#pMain', function() {
 			init_Selectors();		
+
+			gObj_Favorite = new MK_Favorite();
 
 			gObj_cNB = new MK_Navi ( $NB_Sch , $c_Sch );
 
@@ -904,22 +1083,55 @@
 				}
 			});
 
+			$c_Sch_List.on("click", "img", function(){
+
+				var $li = $(this).closest( "li" );
+				gObj_Favorite.setFavIcon( $li.data("idx") , $li.data("sidx") , $(this) );
+
+				return false;
+			});		
+
 
 			$c_Sch_List.on("click", "li[data-role != list-divider]", function(){
 				show_Page_View_Schedule ( $(this).data("idx") , $(this).data("sidx") );
+				return false;
 			});		
+
 
 			gObj_Cal_UI = new MK_UI_Calendar( );
 			
 			gObj_pList = new MK_Place_List( );
 
-		});
+
+			$pMain.on( "pagebeforeshow" , function( evt , ui ) {
+				// Check previous Page
+				var pID = ui.prevPage.attr("id");
+
+				if ( pID == "pVSche") {
+					// Check if there is FIcon change
+					if ( $pVSche.data( "ovF" ) != gObj_Favorite.fData[$pVSche.data("didx")][$pVSche.data("sidx")] ) {
+						if ( gObj_cNB.$content == $c_Sch ) {
+							// Update schedule List Favorite Icon
+							gObj_Cal_UI.updateIcon();
+
+						} else if ( gObj_cNB.$content == $c_Fav ) {
+							// update Favorite List
+							gObj_Favorite.showFavList();
+						}
+					}
+				}
+
+			});
+
+
+		});  // $(document).on('pageinit', '#pMain', function()
 
 
 		$(document).on('pageinit', '#pVSche', function() {
 			$pVSche = $("#pVSche");
 
 			$pVS_title_txt = $pVSche.find("#pVS_content > #pVS_title > #pVS_title_txt");
+			$pVS_star = $pVSche.find("#pVS_content > #pVS_title > img");
 			$pVS_time_txt = $pVSche.find("#pVS_content > #pVS_time > #pVS_time_txt");
 			$pVS_date_txt = $pVSche.find("#pVS_content > #pVS_time > #pVS_date_txt");
 			$pVS_place = $pVSche.find("#pVS_content > #pVS_place");
@@ -937,6 +1149,13 @@
 				show_Page_Map( $pVSche.data("pIdx") );
 			});
 
+			$pVS_star.on("click" , function(){
+				
+				gObj_Favorite.setFavIcon( $pVSche.data("didx") , $pVSche.data("sidx"), $(this) );
+
+				return false;
+			});
+
 
 		});
 
@@ -951,17 +1170,47 @@
 			
 			$pSub_pList = $("#pSub_pList");
 
+			var $pSub_pl_content = $pSub_pList.find("#pSub_pl_content");
+
 			// Add Event
 			$pSub_pList.find("#pSub_pl_hd #pSubPL__mBtn").on( 'click', function() {
 				show_Page_Map( $pSub_pList.data("pIdx") );
 
 			});
 
-			$pSub_pList.on( 'click', 'li a', function() {
+			$pSub_pl_content.on( 'click', 'a', function() {
 
 				var $li = $(this).closest("li");
-
 				show_Page_View_Schedule( $li.data("didx") , $li.data("sidx") );
+
+				return false;
+
+			});
+
+
+			$pSub_pl_content.on( 'click', 'img', function() {
+
+				var $li = $(this).closest("li");
+				gObj_Favorite.setFavIcon( $li.data("didx") , $li.data("sidx") , $(this) );
+				
+				return false;
+			});
+
+
+			$pSub_pList.on( "pagebeforeshow" , function( evt , ui ) {
+				// Check previous Page
+				var pID = ui.prevPage.attr("id");
+
+				if ( pID == "pVSche") {
+					var di = $pVSche.data("didx");
+					var si = $pVSche.data("sidx");
+
+					// Check if there is FIcon change
+					if ( $pVSche.data( "ovF" ) != gObj_Favorite.fData[di][si] ) {
+						var $li = $pSub_pList.find('#pSub_pl_content li[data-didx="' + di + '"][data-sidx="' + si + '"]');
+						$li.find("img").attr("src", gObj_Favorite.getFavIcon( di, si ) );
+					}
+				}
 
 			});
 
@@ -1030,7 +1279,8 @@
 		</div>
 
 		<div id="c_Fav" class="pm_content"> 
-			Favorite
+			<ul data-role="listview" data-theme="c" data-split-icon="delete">			
+			</ul>
 		</div>
 
 		<div id="c_Info" class="pm_content"> 
