@@ -53,7 +53,7 @@
 			Global Var
 *******************************************************************************************/
 		var $pMain, $pMain_HD, $pMain_Content;
-		var $pMain_Cal, $pMC_Sel, $pMC_LB, $pMC_RB, $pMC_SelPL, $pMC_Popup;
+
 		var $NB_Sch, $NB_Venue, $NB_Fav, $NB_Info;
 		var $c_Sch, $c_Venue, $c_Fav, $c_Info;
 		var $c_Sch_List;
@@ -86,6 +86,25 @@
 		function MK_Navi( $NB , $content ){
 			this.$NB = $NB;
 			this.$content = $content;
+
+
+			// add Events
+			$NB_Sch.on("click", function(){
+				gObj_cNB.change( $NB_Sch , $c_Sch );
+			});
+
+			$NB_Venue.on("click", function(){
+				gObj_cNB.change( $NB_Venue , $c_Venue );
+
+			});
+
+			$NB_Fav.on("click", function(){
+				gObj_cNB.change( $NB_Fav , $c_Fav );
+			});
+
+			$NB_Info.on("click", function(){
+				gObj_cNB.change( $NB_Info , $c_Info );
+			});
 		}
 
 
@@ -107,12 +126,6 @@
 				this.$NB.removeClass("ui-state-persist");
 				$new_NB.addClass("ui-state-persist");
 
-				// Check Calender
-				if ( $new_NB == $NB_Sch ) {
-					$pMain_Cal.show().trigger( 'updatelayout' );
-				} else if ( this.$NB == $NB_Sch ) {
-					$pMain_Cal.hide().trigger( 'updatelayout' );
-				}
 
 				this.$NB = $new_NB;
 
@@ -123,7 +136,7 @@
 					gObj_Favorite.showFavList();
 				
 				} else if ( $new_content == $c_Sch  ) {  // Update Shedule List
-					gObj_Cal_UI.updateIcon();
+					gObj_Cal_UI.update_sListIcon();
 				}
 
 				$new_content.show();
@@ -470,116 +483,131 @@
 			Calendar UI Object
 ****************************************************************/
 		function MK_UI_Calendar ( ) {
-			var sListLength = gArr_sList.length;
 
-			var fDay = gArr_sList[0].sDate;
-			var lDay = gArr_sList[sListLength - 1].sDate;
-			var today = new Date();
-			var selDay; // Selected Day
-			var idx; // Selected Day Index in gArr_sList
-
-//today.setFullYear(2012,9,20); // for test
-
-			today.setHours(0);
-			today.setMinutes(0);
-			today.setSeconds(0);
-			today.setMilliseconds(0);
-
-			if( cmp_date( today , fDay ) == -1 ) {
-			// Before MassKara : Show fDay
-				selDay = fDay;
-				idx = 0;
-
-			} else if (cmp_date( today , lDay ) == 1) {
-			// After MassKara : Show lDay
-				selDay = lDay;
-				idx = sListLength - 1;
+			this.idx = this.get_idxForToday();
+			this.isPopupOpen = false;
 			
-			} else {
-			// During MassKara
-				for( var i = 0; i < sListLength; i++ ) {
-					var itm = gArr_sList[i].sDate;
+			this.$main = $c_Sch.children("#c_Sch_calUI");
+			this.$lBtn = this.$main.find("#c_Sch_cui_LB");
+			this.$rBtn = this.$main.find("#c_Sch_cui_RB");
+			this.$cBtn = this.$main.find("#c_Sch_cui_date");
+			this.$popup = $("#popupSelDate");		
+			this.$popupList = this.$popup.find("ul");
+			
 
-					if( cmp_date( today , itm) <= 0 ) {
-						selDay = itm;
-						idx = i;
+			this.addEvts();
 
-						break;
-					}
-				}
-			}
+			this.update();
+		}
 
-
-			this.idx = idx; // Selected Day Index in gArr_sList
-
-
-			this.update_UI_Calender();
-
-		} // function MK_UI_Calendar
-				
 		MK_UI_Calendar.prototype = {
 			constructor: MK_UI_Calendar
 
-			, updateIcon : function () {
-				// Check schedule List Favorite Icon
-				var $img = $c_Sch_List.find("li[data-role != list-divider] a img")
-				var didx = gObj_Cal_UI.idx;
+			, addEvts : function(){
 				
-				$img.each( function(i) {
-					$(this).attr("src", gObj_Favorite.getFavIcon( didx, i ) );
+				this.$rBtn.on("click", function(){
+					gObj_Cal_UI.click_rBtn();
 				});
+
+				this.$lBtn.on("click", function(){
+					gObj_Cal_UI.click_lBtn();
+				});
+
+				this.$cBtn.on("click", function(){
+					gObj_Cal_UI.$popup.popup( "open" );
+				});
+
+				this.$popup.bind({
+					popupbeforeposition: function(event, ui) {
+						gObj_Cal_UI.update_popupList();
+
+						gObj_Cal_UI.isPopupOpen = true;
+					}
+				});
+
+				this.$popup.bind({
+					popupafterclose: function(event, ui) {
+						gObj_Cal_UI.isPopupOpen = false;
+					}
+				});
+
+				this.$popupList.on("click", "li", function(){
+					var idx = $(this).data('idx');
+
+					if( idx > -1 ) {
+						gObj_Cal_UI.select_pDate( idx );
+						gObj_Cal_UI.$popup.popup( "close" );
+					}
+				});
+
+				$c_Sch_List.on("click", "img", function(){
+
+					var $li = $(this).closest( "li" );
+					gObj_Favorite.setFavIcon( $li.data("idx") , $li.data("sidx") , $(this) );
+
+					return false;
+				});		
+
+
+				$c_Sch_List.on("click", "li[data-role != list-divider]", function(){
+					show_Page_View_Schedule ( $(this).data("idx") , $(this).data("sidx") );
+					return false;
+				});		
+
+
+
 			}
 
-			, showList : function () {
+			, get_idxForToday : function () {
+				var sListLength = gArr_sList.length;
+
+				var fDay = gArr_sList[0].sDate;
+				var lDay = gArr_sList[sListLength - 1].sDate;
+				var today = new Date();
+				var selDay; // Selected Day
+				var idx; // Selected Day Index in gArr_sList
+
+	//today.setFullYear(2012,9,20); // for test
+
+				today.setHours(0);
+				today.setMinutes(0);
+				today.setSeconds(0);
+				today.setMilliseconds(0);
+
+				if( cmp_date( today , fDay ) == -1 ) {
+				// Before MassKara : Show fDay
+					selDay = fDay;
+					idx = 0;
+
+				} else if (cmp_date( today , lDay ) == 1) {
+				// After MassKara : Show lDay
+					selDay = lDay;
+					idx = sListLength - 1;
 				
-				var sList = gArr_sList[this.idx].sList;
-				var cDay = gArr_sList[this.idx].sDate;
-				var tDay = gArr_weekDay[ cDay.getDay() ] + " " + cDay.getDate() + " " + gArr_month[cDay.getMonth()] + " " + cDay.getFullYear();
-
-				var txt = '<li data-role="list-divider"><h3 class="ui-li-heading">' + tDay + '</h3></li>';
-
-				for ( var i=0, iCnt= sList.length; i < iCnt; i++ ) {
-					var cs = sList[i];
-					var title = cs.title;
-					var pidx = cs.place;
-					var place = ( isUD( gArr_place[pidx] ) ? "" : " @ " + gArr_place[pidx].name );
-
-					txt += '<li data-idx="' + this.idx + '" data-sidx="' + i + '" ><a>';
-					txt += '<img src="' +  gObj_Favorite.getFavIcon( this.idx, i ) + '" class="ui-li-icon" />';
-					txt += '<h3 class="ui-li-heading">' + title + '</h3>';
-					txt += '<p class="ui-li-desc">' + getSTime( cs ) + place + '</p></a></li>';			
-				}
-
-				$c_Sch_List.html(txt).listview('refresh');
-			}
-
-			, setCalUI : function () {
-
-				$pMC_Sel.text(this.getBtnTxt( this.idx , 0 )).button('refresh');
-
-				if($pMC_RB.parent().css("display") == "none") $pMC_RB.parent().show();
-				if($pMC_LB.parent().css("display") == "none") $pMC_LB.parent().show();
-
-				// Set Left, Right Buttons
-				if ( this.idx == 0 ) {
-					// Hide Left Button
-					$pMC_LB.parent().hide();
-					$pMC_RB.text( this.getBtnTxt( 1 ) ).button('refresh');
-				
-				} else if ( this.idx == gArr_sList.length - 1 ) {
-					// Hide Right Button
-					$pMC_RB.parent().hide();
-					$pMC_LB.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
-
 				} else {
-					$pMC_LB.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
-					$pMC_RB.text( this.getBtnTxt( this.idx + 1 ) ).button('refresh');
-				}
+				// During MassKara
+					for( var i = 0; i < sListLength; i++ ) {
+						var itm = gArr_sList[i].sDate;
 
+						if( cmp_date( today , itm) <= 0 ) {
+							selDay = itm;
+							idx = i;
 
+							break;
+						}
+					} // for( var i = 0; i < sListLength; i++ )
+				} // if( cmp_date( today , fDay ) == -1 )
+
+				return idx;
+			} // get_idxForToday : function
+		
+			, update : function(){
+				this.set_calUI();
+				this.show_sList();
 			}
 
-			, update_selPL : function (){
+			, update_popupList : function (){
+
 				var txt = '<li data-role="list-divider" data-idx="-1">Select Day</li>';
 				var theme = ["a", "c"];
 
@@ -597,39 +625,102 @@
 					txt += '<span class="ui-li-count">' + gArr_sList[i].sList.length + '</span></li>';
 				}
 
-				$pMC_SelPL.html(txt).listview('refresh');
+				gObj_Cal_UI.$popupList.html(txt).listview('refresh');
+
+
 			}
 
-			, update_UI_Calender : function() {
-				this.setCalUI();
-				this.showList();
+			, set_calUI : function(){
+				this.$cBtn.text(this.getBtnTxt( this.idx , 0 )).button('refresh');
+
+				var $pRBT = this.$rBtn.parent();
+				var $pLBT = this.$lBtn.parent();
+
+				if( $pRBT.css("display") == "none" ) $pRBT.show();
+				if( $pLBT.css("display") == "none" ) $pLBT.show();
+
+				// Set Left, Right Buttons
+				if ( this.idx == 0 ) {
+					// Hide Left Button
+					$pLBT.hide();
+
+					this.$rBtn.text( this.getBtnTxt( 1 ) ).button('refresh');
+				
+				} else if ( this.idx == gArr_sList.length - 1 ) {
+					// Hide Right Button
+					$pRBT.hide();
+					this.$lBtn.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
+
+				} else {
+					this.$lBtn.text( this.getBtnTxt( this.idx - 1 ) ).button('refresh');
+					this.$rBtn.text( this.getBtnTxt( this.idx + 1 ) ).button('refresh');
+				}
 			}
+
+			, show_sList : function(){
+				var sList = gArr_sList[this.idx].sList;
+				var cDay = gArr_sList[this.idx].sDate;
+				var tDay = gArr_weekDay[ cDay.getDay() ] + " " + cDay.getDate() + " " + gArr_month[cDay.getMonth()] + " " + cDay.getFullYear();
+
+				var txt = '<li data-role="list-divider"><h3 class="ui-li-heading">' + tDay + '</h3><span class="ui-li-count">' + gArr_sList[this.idx].sList.length + '</span></li>';
+
+				for ( var i=0, iCnt= sList.length; i < iCnt; i++ ) {
+					var cs = sList[i];
+					var title = cs.title;
+					var pidx = cs.place;
+					var place = ( isUD( gArr_place[pidx] ) ? "" : " @ " + gArr_place[pidx].name );
+
+					txt += '<li data-idx="' + this.idx + '" data-sidx="' + i + '" ><a>';
+					txt += '<img src="' +  gObj_Favorite.getFavIcon( this.idx, i ) + '" class="ui-li-icon" />';
+					txt += '<h3 class="ui-li-heading">' + title + '</h3>';
+					txt += '<p class="ui-li-desc">' + getSTime( cs ) + place + '</p></a></li>';			
+				}
+
+				$c_Sch_List.html(txt).listview('refresh');
+			}
+
+			, update_sListIcon : function () {
+				// Check schedule List Favorite Icon
+				var $img = $c_Sch_List.find("li[data-role != list-divider] a img")
+				var didx = gObj_Cal_UI.idx;
+				
+				$img.each( function(i) {
+					$(this).attr("src", gObj_Favorite.getFavIcon( didx, i ) );
+				});
+			}
+
 
 			, getBtnTxt : function ( i , type ) {
 				var iDay = gArr_sList[i].sDate;
 
 				if( type == 0 )
-					return ( "" + gArr_sWeekDay[iDay.getDay()] + " " + iDay.getDate()  );
-				else
 					return ( "" + iDay.getDate() + " " + gArr_sMonth[ iDay.getMonth() ] );
+				else
+					//return ( "" + iDay.getDate() + " " + gArr_sMonth[ iDay.getMonth() ] );
+					return ( "" + iDay.getDate());
 			}
 
-			, click_RBtn : function( ) {
+			, click_rBtn : function( ) {
 				this.idx++;
-				this.update_UI_Calender();
+				this.update();
 			}
 
-			, click_LBtn : function( ) {
+			, click_lBtn : function( ) {
 				this.idx--;
-				this.update_UI_Calender();
+				this.update();
 			}
 
 			, select_pDate : function( idx ) {
 				this.idx = idx;
-				this.update_UI_Calender();
+				this.update();
 			}
-		};
 
+			, closePopup : function( idx ) {
+				this.$popup.popup( "close" );
+			}
+
+		} // MK_UI_Calendar.prototype
+				
 
 /******************************************************************************************
 			Util Functions
@@ -686,7 +777,7 @@
 *******************************************************************************************/
 		function init_vals(){
 			gArr_weekDay = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
-			gArr_sWeekDay = [ "SU", "MO", "TU", "WE", "TH", "FR", "SA" ];
+			gArr_sWeekDay = [ "Sun", "Mon", "Tue", "Wen", "Thu", "Fri", "Sat" ];
 			gArr_month = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "Decmber"];
 			gArr_sMonth = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -695,12 +786,6 @@
 		function init_Selectors ( ) {
 			$pMain_HD = $pMain.children("#pMain_HD");
 			$pMain_Content = $pMain.children("#pMain_Content");
-			$pMain_Cal = $pMain_HD.children("#pMain_Cal");
-			$pMC_Sel = $pMain_Cal.find("#pMC_Sel"); 
-			$pMC_LB = $pMain_Cal.find("#pMC_LB");
-			$pMC_RB = $pMain_Cal.find("#pMC_RB");
-			$pMC_Popup = $("#popupSelDate");
-			$pMC_SelPL = $pMC_Popup.find("ul");
 
 			$NB_Sch = $pMain_HD.find("ul #NB_Sch");
 			$NB_Venue = $pMain_HD.find("ul #NB_Venue");
@@ -981,10 +1066,17 @@
 			log(" Back Key = " + ap);
 
 			if( ap == "pMain" ) {
-				// Save favorite to Local Storage
-				gObj_Favorite.save();
 
-				navigator.app.exitApp();
+				if( gObj_Cal_UI.isPopupOpen ) {
+					gObj_Cal_UI.closePopup();
+				} else {
+
+					// Save favorite to Local Storage
+					gObj_Favorite.save();
+
+					navigator.app.exitApp();
+				}
+
 			} else {
 				history.back();
 			}
@@ -1037,67 +1129,6 @@
 			gObj_cNB.show();
 
 
-			// add Events
-			$NB_Sch.on("click", function(){
-				gObj_cNB.change( $NB_Sch , $c_Sch );
-			});
-
-			$NB_Venue.on("click", function(){
-				gObj_cNB.change( $NB_Venue , $c_Venue );
-
-			});
-
-			$NB_Fav.on("click", function(){
-				gObj_cNB.change( $NB_Fav , $c_Fav );
-			});
-
-			$NB_Info.on("click", function(){
-				gObj_cNB.change( $NB_Info , $c_Info );
-			});
-
-			$pMC_RB.on("click", function(){
-				gObj_Cal_UI.click_RBtn();
-			});
-
-			$pMC_LB.on("click", function(){
-				gObj_Cal_UI.click_LBtn();
-			});
-
-			$pMC_Popup.bind({
-				popupbeforeposition: function(event, ui) {
-					gObj_Cal_UI.update_selPL();
-				}
-			});
-
-			$pMC_Sel.on("click", function(){
-				$pMC_Popup.popup( "open" );
-			});
-
-
-			$pMC_SelPL.on("click", "li", function(){
-				var idx = $(this).data('idx');
-
-				if( idx > -1 ) {
-					gObj_Cal_UI.select_pDate( idx );
-					$pMC_Popup.popup( "close" );
-				}
-			});
-
-			$c_Sch_List.on("click", "img", function(){
-
-				var $li = $(this).closest( "li" );
-				gObj_Favorite.setFavIcon( $li.data("idx") , $li.data("sidx") , $(this) );
-
-				return false;
-			});		
-
-
-			$c_Sch_List.on("click", "li[data-role != list-divider]", function(){
-				show_Page_View_Schedule ( $(this).data("idx") , $(this).data("sidx") );
-				return false;
-			});		
-
-
 			gObj_Cal_UI = new MK_UI_Calendar( );
 			
 			gObj_pList = new MK_Place_List( );
@@ -1122,7 +1153,6 @@
 				}
 
 			});
-
 
 		});  // $(document).on('pageinit', '#pMain', function()
 
@@ -1240,38 +1270,39 @@
 		   </ul>
 		</div>
 
-		<div style="clear:both" id="pMain_Cal"> 
-			<div class="ui-grid-b" style="padding:5px 0">
-				<div class="ui-block-a">
-					<span>
-					<button data-mini="false" data-inline="true" data-icon="arrow-l"  data-theme="e" id="pMC_LB"></button>
-					</span>
-				</div>
-				<div class="ui-block-b">
-
-					<button data-rel="popup" data-role="button" data-mini="false" data-theme="c"  id="pMC_Sel"></button>
-					<div data-role="popup" id="popupSelDate">
-						<ul data-role="listview" data-inset="true" data-theme="e">
-						</ul>
-					</div>
-
-				</div>
-				<div class="ui-block-c" style="text-align:right">
-					<span>
-					<button data-mini="false" data-inline="true" data-icon="arrow-r" data-iconpos="right" data-theme="e" id="pMC_RB"></button>
-					</span>
-				</div>
-			</div>
-		</div>
-
-
 	</div>  <!-- /header #pMain_HD -->
 
 	<div data-role="content" id="pMain_Content">
 
 		<div id="c_Sch" class="pm_content"> 
-			<ul data-role="listview" data-inset="false" data-theme="c">
+
+			<div id="c_Sch_calUI"> 
+				<div class="ui-grid-b">
+					<div class="ui-block-a">
+						<span>
+						<button data-mini="true" data-inline="true" data-icon="arrow-l"  data-theme="c" id="c_Sch_cui_LB"></button>
+						</span>
+					</div>
+					<div class="ui-block-b">
+
+						<button data-rel="popup" data-role="button" data-mini="true" data-theme="a"  id="c_Sch_cui_date">28 Oct</button>
+						<div data-role="popup" id="popupSelDate">
+							<ul data-role="listview" data-inset="true" data-theme="e">
+							</ul>
+						</div>
+
+					</div>
+					<div class="ui-block-c" style="text-align:right">
+						<span>
+						<button data-mini="true" data-inline="true" data-icon="arrow-r" data-iconpos="right" data-theme="c" id="c_Sch_cui_RB"></button>
+						</span>
+					</div>
+				</div>
+			</div>
+				
+			<ul data-role="listview" data-inset="true" data-theme="c">
 			</ul>
+
 		</div>
 
 		<div id="c_Venue" class="pm_content"> 
