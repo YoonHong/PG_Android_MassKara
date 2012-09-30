@@ -62,7 +62,7 @@
 		var gObj_Cal_UI; // Calendar UI
 		var gObj_Favorite;
 
-		var gArr_place, gArr_sList;
+		var gArr_place, gArr_subPlace, gArr_sList;
 		var gArr_evtListByPlace; // Schedules by Place
 		var gArr_weekDay, gArr_sWeekDay, gArr_month, gArr_sMonth;
 
@@ -150,10 +150,11 @@
 /****************************************************************
 			Schedule Object
 ****************************************************************/
-		function MK_Schedule(time, title, place, detail){
+		function MK_Schedule(time, title, place, subPlace, detail){
 			this.time = time;
 		    this.title = title;
 			this.place = place;
+			this.subPlace = subPlace;
 			this.detail = detail;
 		}
 
@@ -177,10 +178,11 @@
 /****************************************************************
 			Place Object
 ****************************************************************/
-		function MK_Place(name, addr, latlng){
+		function MK_Place(name, addr, latlng, path){
 			this.name = name;
 			this.addr = addr;
 			this.latlng = latlng;
+			this.path = path;
 		}
 
 		MK_Place.prototype = {
@@ -216,7 +218,7 @@
 					for(var j=0; j < sCnt; j++) {
 						var s = sList[j];
 
-						if ( !isUD( s.place ) ) {
+						if ( s.place != null ) {
 							gArr_evtListByPlace[ s.place ].push( [i , j] );
 						}						
 					
@@ -257,7 +259,7 @@
 
 					if( $this.attr("data-bType") == "map" ) {
 					// Open Map Window
-						show_Page_Map( idx );
+						show_Page_Map( idx , 0 );
 
 					} else {
 						// Show Shedule List by Place
@@ -285,16 +287,16 @@
 		MK_Map.prototype = {
 			constructor: MK_Map
 
-			, showMap : function( pIdx ) {
+			, showMap : function( pIdx , type ) {
 				this.pIdx = pIdx;
 
 				//set Title and Addr
-				this.$pM_header.find("#pM_title").text( gArr_place[pIdx].name );
-				this.$pM_header.find("#pM_addr").text( gArr_place[pIdx].addr );
+				this.$pM_header.find("#pM_title").text( gArr_subPlace[pIdx].name );
+				this.$pM_header.find("#pM_addr").text( gArr_subPlace[pIdx].addr );
 
 				//set Map height
 				this.setMapHeight();
-				display_map( pIdx );
+				display_map( pIdx , type );
 
 			}
 			
@@ -309,10 +311,12 @@
 		};
 
 		// Draw Google Map
-		function display_map( idx )
+		function display_map( idx , type )
 		{
+			var pData = ( type == 0 ) ? gArr_place[idx] : gArr_subPlace[idx];
 
-			var pCenter = new google.maps.LatLng( gArr_place[idx].latlng[0] , gArr_place[idx].latlng[1]);
+			var pCenter = new google.maps.LatLng( pData.latlng[0] , pData.latlng[1]);
+			var path = pData.path;
 
 			var mapProp = {
 				center: pCenter,
@@ -322,26 +326,32 @@
 			};
 			var map = new google.maps.Map(document.getElementById("googleMap"),mapProp);
 
-			var marker = new google.maps.Marker({
-				position:pCenter,
-			});
-			marker.setMap(map);
+			if ( path == null ){
+				var marker = new google.maps.Marker({
+					position:pCenter,
+				});
+				marker.setMap(map);
+			
+			} else {
+				var pLen = path.length;
+				var sPath = [];
 
-			if ( idx == 3 ) {
-				var p1 = new google.maps.LatLng(10.674976063084513, 122.95267676500862);
-				var p2 = new google.maps.LatLng(10.683853274639183, 122.95630311159675);
-				var sPath = [ p1, p2 ];
+				for ( var i = 0 ; i < pLen ; i++ ){
+					sPath.push( new google.maps.LatLng( path[i][0], path[i][1] ) );	
+				}
+
 
 				var mkPath=new google.maps.Polyline({
 				  path: sPath,
 				  strokeColor: "#f00000",
-				  strokeOpacity: 0.8,
-				  strokeWeight: 6
+				  strokeOpacity: 0.6,
+				  strokeWeight: 3
 				  });
 
 				mkPath.setMap(map);
-				
 			}
+
+
 		}
 
 
@@ -350,7 +360,7 @@
 ****************************************************************/
 		function MK_Favorite ( ){
 			
-			this.nameLS = 'favData';
+			this.nameLS = 'favData10';
 			this.fData;
 			
 			this.init();
@@ -361,6 +371,9 @@
 			, init : function () {
 				// init Local Storage
 				if ( typeof localStorage[ this.nameLS ] == "undefined" ){
+
+					// Clear localStorage
+					localStorage.clear();
 
 					// Create New Data					
 					this.fData = [];
@@ -410,8 +423,13 @@
 
 			, getFavIcon : function ( didx , sidx ) {
 				var fIcon = ["star.png", "star2.png"];
-				
-				var imgPath = "img/" + fIcon[ this.fData[didx][sidx] ]
+				var i = 0;
+
+				if( typeof (this.fData[didx][sidx]) != "undefined" ) {
+					i = this.fData[didx][sidx];					
+				}
+
+				var imgPath = "img/" + fIcon[ i ];
 
 				return imgPath;				
 			}
@@ -441,7 +459,7 @@
 						
 						if ( this.fData[i][j] == 1 ){
 							var jSchedule = gArr_sList[i].sList[j];
-							var sPlace = ( typeof(jSchedule.place) != "undefined") ? ( "@ " + gArr_place[jSchedule.place].name ) : "";
+							var sPlace = ( jSchedule.place ) ? ( "@ " + gArr_place[jSchedule.place].name ) : "";
 							var sTime = getSTime ( jSchedule );
 
 							if ( firstDivier ) {
@@ -667,8 +685,11 @@
 				for ( var i=0, iCnt= sList.length; i < iCnt; i++ ) {
 					var cs = sList[i];
 					var title = cs.title;
-					var pidx = cs.place;
-					var place = ( isUD( gArr_place[pidx] ) ? "" : " @ " + gArr_place[pidx].name );
+					var place = "";
+					
+					if ( cs.place != null ) {
+						place = " @ " +  gArr_subPlace[ cs.subPlace ].name; 
+					}
 
 					txt += '<li data-idx="' + this.idx + '" data-sidx="' + i + '" ><a>';
 					txt += '<img src="' +  gObj_Favorite.getFavIcon( this.idx, i ) + '" class="ui-li-icon" />';
@@ -770,8 +791,6 @@
 			return true;
 		}
 
-
-
 /******************************************************************************************
 			Init Functions
 *******************************************************************************************/
@@ -802,15 +821,77 @@
 			$pMap = $("#pMap");
 		}
 
+//  0 : Bacolod Public Plaza,  1 : SM City Event Center,  2 : Tourism Strip,  
+//  3 : Gaisano City,  4 : Orange Gallery,  5 :  Robinsons Mall,  6 : 888 Square mall
+//  7 : BAYS Center,  8 : USLS,  9 : Tay Tung Gym, 10 : GoldenFields
+//  11 : Bacolod City Government Center,   12 : UNOR   
+
+
 		function init_Places ( ) {
 			gArr_place = [
-								new MK_Place( "Bacolod Public Plaza", "Downtown Bacolod City Philippines", ["10.669296", "122.946421"] )
-								, new MK_Place( "MassKara Carnival Site", "Downtown Bacolod City Philippines", ["10.669590293779533", "122.94514378585814"] )
-								, new MK_Place( "SM City Event Center", "Rizal Street Bacolod City Philippines", ["10.671865857143", "122.9439727"] )
-								, new MK_Place( "Tourism Strip", "Lacson Street Bacolod City Philippines", ["10.67896135166121", "122.95415734438487"] )
-								, new MK_Place( "Ground Floor, LCC Rizal Main Gate", "Downtown Bacolod City Philippines", ["10.669590293779533", "122.94514378585814"] )
-								, new MK_Place( "Orange Gallery", "Art District Bacolod City Philippines", ["10.669590293779533", "122.94514378585814"] )
-							];
+							new MK_Place( "Bacolod Public Plaza Area", "Downtown Bacolod City", ["10.669297", "122.946418"], null )
+
+							, new MK_Place( "SM City Event Center", "Rizal Street Bacolod City", ["10.671865857143", "122.9439727"], null )
+							, new MK_Place( "Tourism Strip", "Lacson Street Bacolod City", ["10.67896135166121", "122.95415734438487"], 
+								[ [ "10.674976063084513" , "122.95267676500862" ] , [ "10.683853274639183" , "122.95630311159675" ] ] )
+
+							, new MK_Place( "Gaisano City", "Bacolod City", ["10.659248", "122.939717"], null )
+
+							, new MK_Place( "Orange Gallery, Art District", "Lopue's Annex Bldg, Lacson St. Mandalagan Bacolod City", ["10.694949", "122.960641"], null )				
+							, new MK_Place( "Robinsons Place Bacolod", "Lacson St. Mandalagan Bacolod City", ["10.691267", "122.95838"], null )
+							, new MK_Place( "888 Chinatown Square", "Gatuslao St. Bacolod City", ["10.673291", "122.949693"], null )
+							, new MK_Place( "BAYS Center", "San Juan St. Bacolod City", ["10.669998", "122.945395"], null )
+							, new MK_Place( "University of St. La Salle", "La Salle Avenue Bacolod City", ["10.678725", "122.962444"], null )
+							, new MK_Place( "Tay Tung Gym", "Bacolod Tay Tung High School, Hernaez St. Bacolod City", ["10.661983", "122.948364"], null )
+							, new MK_Place( "Goldenfields Area", "Goldenfields Bacolod City", ["10.649273", "122.938696"], null )
+							, new MK_Place( "Bacolod City Government Center", "Bacolod City", ["10.658671", "122.966654"], null )
+							, new MK_Place( "University of Negros Occidental - Recolletos", "Lizares St., Bacolod City", ["10.655941", "122.948344"], null )
+							
+						]; 
+
+
+//  0 : Bacolod Public Plaza,  1 : MassKara Carnival Site,  2 : SM City Event Center,  3 : Tourism Strip,  
+//  4 : LCC Rizal Main Gate,  5 : Orange Gallery,  6 :  Robinsons Fountain Area,  7 : 888 Square mall
+//  8 : BAYS Center,  9 : USLS,  10 : Tay Tung Gym,  11 : Streets along the Public Plaza, 12 : Casino Filipino
+//  13 : Gonzaga St. - Gatuslao St.  14 : San Juan St,  15 : USLS Coliseum    16 : USLS Courtyard
+// 17 : Bacolod City Government Center,  18 : Robinsons Fountain Area,	19 : UNOR,  20 : San Sebastian Cathedral
+// 21 : Gaisano City	22 : Capitol Lagoon to Bacolod Public,   23 : Super Bowling Lanes,  24 : Gonzaga St.
+// 25 : Gatuslao St.
+
+			gArr_subPlace = [
+							new MK_Place( "Bacolod Public Plaza", "Downtown Bacolod City", ["10.669297", "122.946418"], null )
+							, new MK_Place( "MassKara Carnival Site", "Downtown Bacolod City", ["10.670175448997508", "122.9448652267456"], null )
+							, gArr_place[1]
+							, gArr_place[2]
+							, new MK_Place( "Ground FL., LCC Rizal Main Gate", "Gatuslao St. Bacolod City", ["10.670501", "122.947546"], null )
+							, gArr_place[4]
+							, gArr_place[5]
+							, gArr_place[6]
+							, gArr_place[7]
+							, gArr_place[8]
+							, gArr_place[9]
+							, new MK_Place( "Streets along the Public Plaza", "San Juan St., Gonzaga St. & Gatuslao St., Bacolod City", ["10.669297", "122.946418"], 
+								[ [ "10.66949191958391" , "122.94742811443325" ] , [ "10.668395409126543" , "122.94690776588436" ], [ "10.669125537923776" , "122.94531721593853" ] , [ "10.670124519972504" , "122.94602263690945" ] ] )
+							, new MK_Place( "Ampitheather, Casino Filipino", "Goldenfields Bacolod City", ["10.649273", "122.938696"], null )
+							, new MK_Place( "Gonzaga St. - Gatuslao St.", "Gonzaga St. & Gatuslao St., Bacolod City", ["10.669297", "122.946418"], 
+								[ [ "10.66949191958391" , "122.94742811443325" ] , [ "10.668395409126543" , "122.94690776588436" ], [ "10.669125537923776" , "122.94531721593853" ] ] )
+							, new MK_Place( "San Juan St.", "San Juan St., Bacolod City", ["10.669297", "122.946418"], 
+								[ [ "10.669125537923776" , "122.94531721593853" ] , [ "10.670124519972504" , "122.94602263690945" ]  ] )
+							, new MK_Place( "USLS Coliseum", "University of St. La Salle, Bacolod City", ["10.678625", "122.961285"], null )
+							, new MK_Place( "USLS Courtyard", "University of St. La Salle, Bacolod City", ["10.678725", "122.962444"], null )
+							, new MK_Place( "Bacolod Gov’t Center grounds", "Bacolod City Government Center, Bacolod City", ["10.659167", "122.965686"], null )
+							, new MK_Place( "Robinsons Fountain Area", "Central Citywalk Robinsons, Mandalagan Bacolod City", ["10.691731", "122.957053"], null )
+							, gArr_place[12]
+							, new MK_Place( "San Sebastian Cathedral", "Rizal St., Bacolod City", ["10.670508", "122.947204"], null )
+							, gArr_place[3]
+							, new MK_Place( "Capitol Lagoon to Bacolod Public", "Bacolod City", ["10.669297", "122.946418"], null )
+							, new MK_Place( "Super Bowling Lanes, Goldenfields", "Goldenfield Commercial Complex Bacolod City", ["10.649384", "122.938453"], null )
+							, new MK_Place( "Gonzaga St.", "Gonzaga St., Bacolod City", ["10.669297", "122.946418"], [ [ "10.668395409126543" , "122.94690776588436" ], [ "10.669125537923776" , "122.94531721593853" ] ] )
+							, new MK_Place( "Gatuslao St.", "Gatuslao St., Bacolod City", ["10.669297", "122.946418"], [ [ "10.66949191958391" , "122.94742811443325" ] , [ "10.668395409126543" , "122.94690776588436" ] ] )
+
+						];
+
+
 		}
 
 		function init_Schedules ( ) {
@@ -826,20 +907,54 @@
 			// 2012 Oct 1
 			sDate = new Date(mkYear, mkMonth, 1);
 			sList = [
-						new MK_Schedule(allDay, "Opening of the Festival sites", 0)
-						, new MK_Schedule(allDay, "Opening of Carnival sites", 1)
-						, new MK_Schedule(allDay, "GMA DanssKara:The MassKara Dance Showdown Eliminations")
-						, new MK_Schedule(allDay, "Fireworks")
-						, new MK_Schedule(["7:00 pm", "11:00 pm"], "Opening of 2012 MassKara Festival and DanssKara Elimination (GMA Dance Showdown)", 0)
+						new MK_Schedule(allDay, "Opening of the Festival sites", 0, 0, null)
+						, new MK_Schedule(allDay, "Opening of Carnival sites", 0, 1, null)
+						, new MK_Schedule(["8:00 am", "9:00 am"], "FSCAB Thanksgiving Mass Elderly Week Celeration", 7, 8, null)
+						, new MK_Schedule(["4:00 pm", "6:30 pm"], "DepEd Annual Division Athletic and Cultural Meet", 0, 0, null)
+						, new MK_Schedule(["7:00 pm", "8:00 pm"], "Opening of 2012 MassKara Festival (with fireworks after)", 0, 0, null)
+						, new MK_Schedule(["8:00 pm", "10:00 pm"], "GMA DanssKara: The MassKara Dance Showdown (Eliminations)", 0, 0, null)
+					];	
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 2
+			sDate = new Date(mkYear, mkMonth, 2);
+			sList = [
+						new MK_Schedule(["7:30 pm", "11:30 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+						, new MK_Schedule(["8:30 pm", "9:30 pm"], "Parade of Masks/Drumbeaters", null, null, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
 
+
+			// 2012 Oct 3
+			sDate = new Date(mkYear, mkMonth, 3);
+			sList = [
+						new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 4
+			sDate = new Date(mkYear, mkMonth, 4);
+			sList = [
+						new MK_Schedule(["4:30 pm", "8:00 pm"], "FSCAB Coronation Night", 7, 8, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
 			// 2012 Oct 5
 			sDate = new Date(mkYear, mkMonth, 5);
 			sList = [
-						new MK_Schedule(allDay, "MassKara Art Weekend", undefined,"Opening of art events: MassKara 9 group show, Magika MassKara, Art Tour")
-						, new MK_Schedule(["7:00 pm", "10:00 pm"], "Unveiling: Majika MassKara 9: Ang Bukid Kag Baybay sa Bacolod", 0)
+						new MK_Schedule(allDay, "MassKara Art Weekend", null, null, "Opening of art events: MassKara 9 group show, Magika MassKara, Art Tour")
+						, new MK_Schedule(["4:00 pm", "6:00 pm"], "RONA Media “Dalan sa Kadalag-an” Amateur Singing Contest", null, null, null)
+						, new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["7:00 pm", "10:00 pm"], "Unveiling: Majika MassKara 9: Ang Bukid Kag Baybay sa Bacolod", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "9:00 pm"], "SMB Music Night (Disco)", 0, 11, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -847,9 +962,14 @@
 			// 2012 Oct 6
 			sDate = new Date(mkYear, mkMonth, 6);
 			sList = [
-						new MK_Schedule(allDay, "MassKara Art Weekend")
-						, new MK_Schedule(["5:00 pm", "6:00 pm"], "Opening: LCC Giant MassKara Puppets Replica Exhibits", 4)
-						, new MK_Schedule(["6:00 pm", "8:00 pm"], "Opening: 9D - A Visual Arts Exhibit by the MassKara 9", 5)
+						new MK_Schedule(allDay, "MassKara Art Weekend", null, null, null)
+						, new MK_Schedule(["4:00 pm", "7:00 pm"], "Aksyon Radyo Blow by Blow…Show No Mercy2, Professional Boxing Competition", 10, 12, null)
+						, new MK_Schedule(["5:00 pm", "6:00 pm"], "Opening: LCC Giant MassKara Puppets Replica Exhibits", 0, 4, null)
+						, new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["6:00 pm", "9:00 pm"], "MassKara Queen Talent Night", 2, 2, null)
+						, new MK_Schedule(["6:00 pm", "8:00 pm"], "Opening: 9D - A Visual Arts Exhibit by the MassKara 9", 4, 5, null)
+						, new MK_Schedule(["7:30 pm", "9:00 pm"], "SMB Music Night (Disco)", 0, 13, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -857,24 +977,94 @@
 			// 2012 Oct 7
 			sDate = new Date(mkYear, mkMonth, 7);
 			sList = [
-						new MK_Schedule(allDay, "MassKara Art Weekend", undefined,"Opening of art events: MassKara 9 group show, Magika MassKara, Art Tour")
-						, new MK_Schedule(["6:00 pm", "8:00 pm"], "Installation: Majika Masskara floats in host venues")
+						new MK_Schedule(allDay, "MassKara Art Weekend", null, null, null)
+						, new MK_Schedule(["4:00 pm", "6:00 pm"], 'RONA Media "Dalan sa Kadalag-an" Amateur Singing Contest', null, null, null)
+						, new MK_Schedule(["6:00 pm", "8:00 pm"], 'Installation: Majika MassKara floats in host venues: PanAsiatic Call Centers', null, null, null)
+						, new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "SMB Band", 0, 13, null)
+						, new MK_Schedule(["7:30 pm", "9:00 pm"], "SMB Music Night (Disco)", 0, 14, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition 1st Weekly Semi-Finals", 0, 13, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 8
+			sDate = new Date(mkYear, mkMonth, 8);
+			sList = [
+						new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["7:30 am", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition 2nd Nightly Eliminations", 0, 11, null)
+						, new MK_Schedule(["8:30 pm", "10:00 pm"], "Parade of Masks/Drumbeaters", null, null, null)						
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 9
+			sDate = new Date(mkYear, mkMonth, 9);
+			sList = [
+						new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 10
+			sDate = new Date(mkYear, mkMonth, 10);
+			sList = [
+						new MK_Schedule(["1:00 pm", "9:00 pm"], "Bacolod-Negros Arnis Federation Arinis Competition", 7, 8, null)
+						, new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "8:30 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+						, new MK_Schedule(["8:30 pm", "10:00 pm"], "Night of Mardi Gras", null, null, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 11
+			sDate = new Date(mkYear, mkMonth, 11);
+			sList = [
+						new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "10:00 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+						, new MK_Schedule(["8:30 pm", "10:00 pm"], "Night of Mardi Gras", null, null, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
 
 			// 2012 Oct 12
 			sDate = new Date(mkYear, mkMonth, 12);
 			sList = [
-						new MK_Schedule(["12:00 pm", "1:00 pm"], "i-Witness DocuFest wth GMA News and Public Affairs personalities", 2)					
+						new MK_Schedule(["12:00 pm", "1:00 pm"], "i-Witness DocuFest wth GMA News and Public Affairs personalities", 1, 2, null)					
+						, new MK_Schedule(["4:00 pm", "8:00 pm"], "MassKara Queen Ramp Modeling & Interview", 1, 2, null)
+						, new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+						, new MK_Schedule(["7:00 pm", "11:45 pm"], 'Jazz Musician’s Lab Bacolod "Jazzkara 2012"', 8, 16, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "SMB Music Night (Disco)", null, null, null)
+						, new MK_Schedule(["7:30 pm", "9:00 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
 
+
+			
+			
+			
 			// 2012 Oct 13
 			sDate = new Date(mkYear, mkMonth, 13);
 			sList = [
-						new MK_Schedule(["5:00 pm", "7:00 pm"], "Little Miss MassKara (pageant night)")
+						new MK_Schedule(["6:00 am", "11:00 am"], "RMN Trisikad Race", 0, 0, null)
+						, new MK_Schedule(["9:00 am", "5:00 pm"], 'Negros Occ. Garden Club "Plant A Tree" Activity', 11, 17, null)
+						, new MK_Schedule(["4:00 pm", "7:00 pm"], "MassKara Queen Fantasy Make-up", 5, 18, null)
+						, new MK_Schedule(["5:00 pm", "7:00 pm"], "Little Miss MassKara (pageant night)", 1, 2, null)
+						, new MK_Schedule(["6:00 pm", "7:00 pm"], "Living Rosary", 0, 0, null)
+
+						, new MK_Schedule(["7:00 pm", "9:00 pm"], "Arnis Phil. Mayor’s Cup Eskrima Sa MassKara Int’l. Invitational Championship", 12, 19, null)
+						, new MK_Schedule(["7:00 pm", "11:45 pm"], "Watchmen Daily Journal & MyPhone MassKara 2012 Concert Party", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Coke Band featuring Rated PG Band & Chakra band", 0, 14, null)
+						, new MK_Schedule(["7:30 pm", "8:30 pm"], "SMB Music Night (Disco)", 0, 13, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition 2nd Weekly Semi-finals", 0, 11, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -883,17 +1073,74 @@
 			// 2012 Oct 14
 			sDate = new Date(mkYear, mkMonth, 14);
 			sList = [
-						new MK_Schedule(["5:00 pm", "9:00 pm"], "MassKara Preview: A Fashion Show of MassKara Streetdancing Costumes", 0)
+						new MK_Schedule(allDay, "Dog Show", 6, 7, null)
+						, new MK_Schedule(["7:30 am", "5:00 pm"], "DepEd Cultural Contest", 7, 8, null)
+						, new MK_Schedule(["10:00 am", "11:00 am"], "Fiesta Mass", 0, 20, null)
+						, new MK_Schedule(["2:00 pm", "5:00 pm"], "Aksyon Radyo TRIBE WARX Amateur grappling Competition", 3, 21, null)
+						, new MK_Schedule(["6:00 pm", "7:30 pm"], "Feast of the Holy Rosary Procession, Floral Offering, Marian Bands", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "SMB Band", 0, 13, null)
+						, new MK_Schedule(["7:30 pm", "8:30 pm"], "SMB Music Night (Disco)", 0, 14, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 15
+			sDate = new Date(mkYear, mkMonth, 15);
+			sList = [
+						new MK_Schedule(["1:00 pm", "6:00 pm"], "LCC ARFIEN MassKara Puppet Parade", 0, 22, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+						, new MK_Schedule(["8:30 pm", "10:00 pm"], "Parade of Masks/Drumbeaters", null, null, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 16
+			sDate = new Date(mkYear, mkMonth, 16);
+			sList = [
+						new MK_Schedule(["8:00 am", "6:00 pm"], "Negros Occidental Agriculture Movement World Food Day Celebration", 7, 8, null)
+						, new MK_Schedule(["6:00 am", "10:00 pm"], "MassKara Preview: A Fashion Show of MassKara Streetdancing Costumes", 0, 0, null)
+					];
+
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+			// 2012 Oct 17
+			sDate = new Date(mkYear, mkMonth, 17);
+			sList = [
+						new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+						, new MK_Schedule(["8:30 pm", "10:00 pm"], "Parade of Masks/Drumbeaters", null, null, null)
+						, new MK_Schedule(["8:30 pm", "11:45 pm"], "Kami mga Hubin Bowling Club, National Duckpin Bowling Tournament", 10, 23, null)
+
 					];
 			
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
 
+
+			// 2012 Oct 18
+			sDate = new Date(mkYear, mkMonth, 18);
+			sList = [
+						new MK_Schedule(["7:00 pm", "11:00 pm"], "MassKara Queen Coronation Night", 8, 15, null)
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition Nightly Eliminations", 0, 11, null)
+					];
+			
+			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
+
+
+
 			// 2012 Oct 19
 			sDate = new Date(mkYear, mkMonth, 19);
 			sList = [
-						new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 1: Lights Up, Music On", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-						, new MK_Schedule(["7:00 pm", "9:00 pm"], "(Pagkilita-ay, Pakita-ay) parade kicks off from various parts of Bacolod", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-						, new MK_Schedule(["9:00 pm", "10:00 pm"], "Floats converge", 3)
+						new MK_Schedule(["5:00 pm", "11:45 pm"], "Handog Pasasalamat ng Bombo Radyo at Star FM", 0, 0, null)
+						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 1: Lights Up, Music On", 2, 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["7:00 pm", "9:00 pm"], "(Pagkilita-ay, Pakita-ay) parade kicks off from various parts of Bacolod", null, null, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["7:30 pm", "11:45 pm"], "Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition 3rd Weekly Semi-Final", 0, 11, null)
+						, new MK_Schedule(["9:30 pm", "11:45 pm"], "COKE Band featuring Cooler Spring & Undertow Band", 0, 14, null)
+						, new MK_Schedule(["9:00 pm", "10:00 pm"], "Floats converge", 2, 3, null)
+						, new MK_Schedule(["9:00 pm", "11:45 pm"], "SMB Band Gonzaga St.", 0, 24, null)
+						, new MK_Schedule(["9:30 pm", "11:45 pm"], "Pepsi Party Concert", 0, 25, null)
+						, new MK_Schedule(["9:30 pm", "10:30 pm"], "Two floats converge on San Juan and Gatuslao Sts. – Plaza", 0, 0, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -901,14 +1148,16 @@
 			// 2012 Oct 20
 			sDate = new Date(mkYear, mkMonth, 20);
 			sList = [
-						new MK_Schedule(["3:00 pm", "7:00 pm"], "Streetdance - Schools Category From Libertad Araneta to Bacolod Public Plaza", 0)
-						, new MK_Schedule(["4:00 pm", "6:00 pm"], "Kapuso Mall Show", 2)
-						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions Schools", 0)
-						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 2: Lights Up, Music On", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-						, new MK_Schedule(["8:00 pm", "9:00 pm"], "Electric MassKara Performing Float Competitions Kick off ", 2, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-						, new MK_Schedule(["9:00 pm", "11:00 pm"], "Electric MassKara Floats converge", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-						, new MK_Schedule(["10:30 pm", "11:30 pm"], "Cosplay on the Glow: The ABS-CBN/ MOR 101.5 Electric Cosplay competition", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-
+						new MK_Schedule(["2:00 pm", "4:00 pm"], "2012 National Dog Agility Competition (K9 Obedience Club of Negros)", 9, 10, null)
+						, new MK_Schedule(["3:00 pm", "7:00 pm"], "Streetdance - Schools Category From Libertad Araneta to Bacolod Public Plaza", 0, 0, null)
+						, new MK_Schedule(["4:00 pm", "7:00 pm"], "Jollitown Cosplay Contest", 5, 6, null)
+						, new MK_Schedule(["4:00 pm", "6:00 pm"], "Kapuso Mall Show", 1, 2, null)
+						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions (Schools)", 0, 0, null)
+						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 2: Lights Up, Music On", 2, 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["8:00 pm", "9:00 pm"], "Electric MassKara Performing Float Competitions Kick off ", 1, 2, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["9:00 pm", "11:00 pm"], "Electric MassKara Floats converge", 2, 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["10:30 pm", "11:30 pm"], "Cosplay on the Glow: The ABS-CBN/ MOR 101.5 Electric Cosplay competition", 2, 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["10:30 pm", "11:45 pm"], "SMB Band featuring Cueshe", 0, 24, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -916,10 +1165,11 @@
 			// 2012 Oct 21
 			sDate = new Date(mkYear, mkMonth, 21);
 			sList = [
-						new MK_Schedule(["3:00 pm", "10:00 pm"], "Streetdance - Barangay Category From Libertad Araneta to Bacolod Public Plaza", 0)
-						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions Barangays", 0)
-						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 3", 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
-						, new MK_Schedule(["7:00 pm", "9:00 pm"], "Winners' Showdown Electric MassKara float competition")
+						new MK_Schedule(["3:00 pm", "10:00 pm"], "Streetdance - Barangay Category From Libertad Araneta to Bacolod Public Plaza", 0, 0, null)
+						, new MK_Schedule(["4:00 pm", "7:30 pm"], "MassKara Arena Competitions Barangays", 0, 0, null)
+						, new MK_Schedule(["6:00 pm", "11:59 pm"], "Electric MassKara Day 3", 2, 3, "Street Parties at Tourism Strip and Bacolod Public Plaza continue all night long")
+						, new MK_Schedule(["7:00 pm", "11:45 pm"], "SMB Music Night (Disco)", 0, 11, null)
+						, new MK_Schedule(["7:00 pm", "9:00 pm"], "Winners' Showdown Electric MassKara float competition", null, null, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -927,7 +1177,10 @@
 			// 2012 Oct 22
 			sDate = new Date(mkYear, mkMonth, 22);
 			sList = [
-						new MK_Schedule(["7:00 pm", "11:00 pm"], "MassKara Festival Closing Ceremonies/DanssKara Grand Finals/Kapuso Night", 0, "Street parties at Bacolod Public Plaza continue")					
+						new MK_Schedule(allDay, "MassKara Festival Closing Ceremonies", 0, 0, "Street parties at Bacolod Public Plaza continue")
+						, new MK_Schedule(["7:00 pm", "8:00 pm"], "Part I: Awarding", 0, 0, null)
+						, new MK_Schedule(["7:30 pm", "10:00 pm"], "Part II: Tandâ! Sing Na, Dance Pa! The MassKara Inter-Barangay Talent Competition FINALS", 0, 0, null)
+						, new MK_Schedule(["8:00 pm", "9:00 pm"], "Part III: DanssKara Grand Finals/Kapuso Night", 0, 0, null)
 					];
 
 			gArr_sList.push( new MK_DaySchedules( sDate , sList ) );
@@ -940,7 +1193,7 @@
 			
 			var schedule = gArr_sList[idx].sList[sidx];
 
-			$pVSche.data("pIdx" , schedule.place);
+			$pVSche.data("pIdx" , schedule.subPlace);
 			$pVSche.data( "didx" , idx );
 			$pVSche.data( "sidx" , sidx );
 			$pVSche.data( "ovF" , gObj_Favorite.fData[idx][sidx] );
@@ -952,29 +1205,27 @@
 			$pVS_time_txt.text( getSTime( schedule ) + " , " + gArr_weekDay[ sDate.getDay() ] );
 			$pVS_date_txt.text( sDate.getDate() + " " + gArr_month[sDate.getMonth()] + " " + sDate.getFullYear() )
 
-			if( isUD( schedule.place ) ) {
-				$pVSche.find("#pVS_h #pVS_hMapBtn").button('disable'); // Hide show Map button
-				$pVS_place.hide();
-
-			} else {
+			if( schedule.place != null ) {
 				$pVSche.find("#pVS_h #pVS_hMapBtn").button('enable');
 				$pVS_place.show();
 
-				var place = gArr_place[ schedule.place ];
+				var place = gArr_subPlace[ schedule.subPlace ];
 				$pVS_place.find("#pVS_pName").text( place.name );
 				$pVS_place.find("#pVS_pAddr").text( place.addr );
+
+			} else {
+				$pVSche.find("#pVS_h #pVS_hMapBtn").button('disable'); // Hide show Map button
+				$pVS_place.hide();
 			}
 
 
-			if( isUD( schedule.detail ) ) {
-
-				$pVS_detail.hide();
-
-			} else {
+			if( schedule.detail != null ) {
 				$pVS_detail.show();
 
 				$pVS_detail.text( schedule.detail );
 
+			} else {
+				$pVS_detail.hide();
 			}
 			
 		}
@@ -991,6 +1242,7 @@
 			$pSub_pList.find("#pSub_pl_hd #pSubPL__pTitle").text( gArr_place[idx].name );
 
 			var cDateIdx = -1;
+			var calUI_idx = gObj_Cal_UI.idx;
 			
 			for( var i=0, iCnt = evtPlace.length; i < iCnt; i++ ){
 				var didx = evtPlace[i][0];
@@ -1007,7 +1259,15 @@
 					var nDate = gArr_sList[didx].sDate;
 					var tDay = gArr_weekDay[ nDate.getDay() ] + " " + nDate.getDate() + " " + gArr_month[nDate.getMonth()] + " " + nDate.getFullYear();
 
-					txtList += '<div  data-role="collapsible"  data-collapsed="false" data-mini="true">';
+					var vColl = "false";
+
+					// only if place is Public Plaza
+					if ( idx == 0 && calUI_idx != didx ) {
+						vColl = "true";
+					}
+
+
+					txtList += '<div  data-role="collapsible"  data-collapsed="' + vColl + '" data-mini="true">';
 					txtList += '<h3>' + tDay + '</h3>';
 					txtList += '<ul data-role="listview" data-mini="true" data-inset="true" data-theme="c">'
 
@@ -1019,7 +1279,7 @@
 
 				txtList += '<li data-didx="' + didx + '" data-sidx="' + sidx + '"><a>';
 				txtList += '<img src="img/star.png" class="ui-li-icon fav_icon" />';
-				txtList += '<p class="ui-li-desc"><b>' + s.title + '</b><br/>' + getSTime(s) + '</p></a></li>';
+				txtList += '<p class="ui-li-desc"><b>' + s.title + '</b><br/>' + getSTime(s) + ' @ ' +  gArr_subPlace[ s.subPlace ].name + '</p></a></li>';
 			
 			}
 
@@ -1037,12 +1297,12 @@
 		}
 
 
-		function show_Page_Map( idx ){
+		function show_Page_Map( idx , type ){
 			
 			// Network Check
 			if ( checkConnection() ){
 				$.mobile.changePage("#pMap");
-				gObj_Map.showMap( idx );
+				gObj_Map.showMap( idx , type );
 			}
 		}
 
@@ -1170,13 +1430,13 @@
 
 			$pVS_place.on("click", "#pVS_map", function(){
 				// Show Map Page
-				show_Page_Map( $pVSche.data("pIdx") );
+				show_Page_Map( $pVSche.data("pIdx") , 1 );
 			});
 
 
 			$pVSche.find("#pVS_h #pVS_hMapBtn").on("click", function(){
 				// Show Map Page
-				show_Page_Map( $pVSche.data("pIdx") );
+				show_Page_Map( $pVSche.data("pIdx") , 1 );
 			});
 
 			$pVS_star.on("click" , function(){
@@ -1204,7 +1464,7 @@
 
 			// Add Event
 			$pSub_pList.find("#pSub_pl_hd #pSubPL__mBtn").on( 'click', function() {
-				show_Page_Map( $pSub_pList.data("pIdx") );
+				show_Page_Map( $pSub_pList.data("pIdx") , 0);
 
 			});
 
