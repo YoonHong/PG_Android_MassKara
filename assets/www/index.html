@@ -294,6 +294,8 @@
 				this.$pM_header.find("#pM_title").text( gArr_subPlace[pIdx].name );
 				this.$pM_header.find("#pM_addr").text( gArr_subPlace[pIdx].addr );
 
+				$pMap.trigger( 'updatelayout' );
+
 				//set Map height
 				this.setMapHeight();
 				display_map( pIdx , type );
@@ -360,7 +362,7 @@
 ****************************************************************/
 		function MK_Favorite ( ){
 			
-			this.nameLS = 'favData10';
+			this.nameLS = 'favDataV1.0';
 			this.fData;
 			
 			this.init();
@@ -503,6 +505,9 @@
 		function MK_UI_Calendar ( ) {
 
 			this.idx = this.get_idxForToday();
+
+			this.fixedIdx = this.idx;
+
 			this.isPopupOpen = false;
 			
 			this.$main = $c_Sch.children("#c_Sch_calUI");
@@ -1242,20 +1247,24 @@
 			$pSub_pList.find("#pSub_pl_hd #pSubPL__pTitle").text( gArr_place[idx].name );
 
 			var cDateIdx = -1;
-			var calUI_idx = gObj_Cal_UI.idx;
+			var calUI_idx = gObj_Cal_UI.fixedIdx;
+
 			
+			var $content = $pSub_pList.find("#pSub_pl_content");
+			$content.empty();
+
+			var $tc = $( "<div>" );
+			var $ul;
+
 			for( var i=0, iCnt = evtPlace.length; i < iCnt; i++ ){
 				var didx = evtPlace[i][0];
 				var sidx = evtPlace[i][1];
 
+				
 				// Set Date
 				if( didx != cDateIdx ) {
 				// New Date
-
-					if( cDateIdx != -1 ) {
-						txtList += '</ul></div>'
-					}
-					
+				
 					var nDate = gArr_sList[didx].sDate;
 					var tDay = gArr_weekDay[ nDate.getDay() ] + " " + nDate.getDate() + " " + gArr_month[nDate.getMonth()] + " " + nDate.getFullYear();
 
@@ -1267,26 +1276,42 @@
 					}
 
 
+
 					txtList += '<div  data-role="collapsible"  data-collapsed="' + vColl + '" data-mini="true">';
 					txtList += '<h3>' + tDay + '</h3>';
 					txtList += '<ul data-role="listview" data-mini="true" data-inset="true" data-theme="c">'
 
+					var $div = $("<div>").attr( { "data-role" :"collapsible", "data-collapsed":vColl, "data-mini":"true" } );
+
+					$("<h3>").text(tDay).appendTo($div);
+
+					$("<ul>").attr({ "data-role" :"listview", "data-mini":"true", "data-inset":"true", "data-theme":"c" }).appendTo($div);
+
+					$tc.append($div);
+
+					$ul = $tc.find("ul").last(); 
+				
 					cDateIdx = didx;
 				}
 
 				// Set Schedule
 				var s = gArr_sList[didx].sList[sidx];
 
-				txtList += '<li data-didx="' + didx + '" data-sidx="' + sidx + '"><a>';
-				txtList += '<img src="img/star.png" class="ui-li-icon fav_icon" />';
-				txtList += '<p class="ui-li-desc"><b>' + s.title + '</b><br/>' + getSTime(s) + ' @ ' +  gArr_subPlace[ s.subPlace ].name + '</p></a></li>';
-			
+				var $li = $("<li>").attr( { "data-didx" :didx, "data-sidx" :sidx } );
+
+				var $a = $("<a>")
+							.append( $('<img src="img/star.png" class="ui-li-icon fav_icon">'))
+							.append( $('<p>').addClass("ui-li-desc").html('<b>' +  s.title + '</b><br/>' + getSTime(s) + ' @ ' +  gArr_subPlace[ s.subPlace ].name) )
+							.appendTo($li);
+
+				
+				$li.appendTo($ul);
+
 			}
 
-			txtList += '</ul></div>'
+			
+			$content.append($tc);
 
-			var $content = $pSub_pList.find("#pSub_pl_content");
-			$content.html(txtList);
 
 			$content.find("ul").listview().listview('refresh');
 
